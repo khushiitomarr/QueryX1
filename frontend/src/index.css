@@ -1,0 +1,364 @@
+@import "tailwindcss";
+
+/* ════════════════════════════════════════════
+   🌗 THEME COLORS + BACKGROUND GRADIENTS
+═══════════════════════════════════════════════ */
+
+/* BASE VARIABLES (FALLBACKS) */
+:root {
+  --bg: #0b0f19;
+  --text: #ffffff;
+  --accent: #7a5cff;
+  --card: rgba(255,255,255,0.03);
+}
+
+/* DARK THEME */
+[data-theme="dark"] {
+  --bg: #0b0f19;
+  --text: #ffffff;
+  --accent: #7a5cff;
+  --card: rgba(255,255,255,0.05);
+}
+
+/* LIGHT THEME */
+[data-theme="light"] {
+  --bg: #f7f7f7;
+  --text: #111111;
+  --accent: #0072ff;
+  --card: rgba(0,0,0,0.07);
+}
+
+/* OCEAN THEME */
+[data-theme="ocean"] {
+  --bg: radial-gradient(circle at 50% 50%, #00101e, #00344d 70%, #001d2c);
+  --text: #b5eaff;
+  --accent: #2cc8ff;
+  --card: rgba(0,255,255,0.06);
+}
+
+/* ROSE THEME */
+[data-theme="rose"] {
+  --bg: radial-gradient(circle at 50% 50%, #2a0014, #4d0026 70%, #1a0010);
+  --text: #ffc6da;
+  --accent: #ff4f9a;
+  --card: rgba(255,0,128,0.1);
+}
+
+/* NEBULA THEME */
+[data-theme="nebula"] {
+  --bg: radial-gradient(circle at 50% 50%, #14001e, #310049 70%, #0b0014);
+  --text: #ffdbff;
+  --accent: #b04aff;
+  --card: rgba(255,255,255,0.05);
+}
+
+/* CYBER THEME */
+[data-theme="cyber"] {
+  --bg: radial-gradient(circle at 50% 50%, #000d10, #001a22 70%, #00080b);
+  --text: #9effff;
+  --accent: #00ffea;
+  --card: rgba(0,255,255,0.07);
+}
+
+
+/* ════════════════════════════════════════════
+   🌌 GLOBAL BACKGROUND + STARFIELD SPACE 
+═══════════════════════════════════════════════ */
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  transition: color .3s ease;
+  overflow: hidden;
+}
+
+.galaxy {
+  background:
+    radial-gradient(circle at 50% 50%, #02050f, #000000 80%),
+    url("https://raw.githubusercontent.com/itscodenation/galaxy-assets/main/noise.png");
+  background-size: cover;
+}
+
+/* ════════════════════════════════════════════
+   🌠 THREE STAR LAYERS (Parallax Effect)
+═══════════════════════════════════════════════ */
+
+.stars,
+.stars2,
+.stars3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+  background-repeat: repeat;
+  opacity: 0.7;
+}
+
+.stars {
+  background-image: url("https://raw.githubusercontent.com/itscodenation/galaxy-assets/main/stars-small.png");
+  animation: parallax 140s linear infinite;
+}
+
+.stars2 {
+  background-image: url("https://raw.githubusercontent.com/itscodenation/galaxy-assets/main/stars-medium.png");
+  animation: parallax 240s linear infinite reverse;
+  opacity: 0.45;
+}
+
+.stars3 {
+  background-image: url("https://raw.githubusercontent.com/itscodenation/galaxy-assets/main/stars-large.png");
+  animation: parallax 300s linear infinite;
+  opacity: 0.3;
+}
+
+@keyframes parallax {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-400px, -650px, 0); }
+}
+
+/* ════════════════════════════════════════════
+   ✨ SPARKLE LAYER
+═══════════════════════════════════════════════ */
+
+.stars-sparkle {
+  position: absolute;
+  inset: 0;
+  background-image:
+    url("https://raw.githubusercontent.com/itscodenation/galaxy-assets/main/sparkle.png");
+  background-size: cover;
+  mix-blend-mode: screen;
+  animation: sparkle 6s infinite ease-in-out alternate;
+  opacity: 0.35;
+}
+
+@keyframes sparkle {
+  0% { opacity: 0.3; }
+  100% { opacity: 0.6; }
+}
+
+/* ════════════════════════════════════════════
+   🌫 NEBULA CLOUD GLOW
+═══════════════════════════════════════════════ */
+
+.galaxy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 30% 40%, rgba(90,30,255,0.45), transparent 60%),
+    radial-gradient(circle at 70% 80%, rgba(0,200,255,0.35), transparent 60%),
+    radial-gradient(circle at 50% 20%, rgba(255,0,180,0.25), transparent 60%);
+  filter: blur(120px);
+  animation: nebulaDrift 22s infinite ease-in-out alternate;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+@keyframes nebulaDrift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-40px, 20px, 0) scale(1.25); }
+}
+
+/* ════════════════════════════════════════════
+   🌠 SHOOTING STARS
+═══════════════════════════════════════════════ */
+
+.shooting-star {
+  position: absolute;
+  width: 2px;
+  height: 100px;
+  top: -200px;
+  left: 50%;
+  background: linear-gradient(to bottom, white, transparent);
+  transform: rotate(35deg);
+  animation: shooting 3.5s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+@keyframes shooting {
+  0% { transform: translate(0,0) rotate(35deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate(-800px,600px) rotate(35deg); opacity: 0; }
+}
+
+/* ════════════════════════════════════════════
+   📌 CARD + AI RESULTS
+═══════════════════════════════════════════════ */
+
+.card {
+  background-color: var(--card);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+}
+
+/* AI text glow */
+.ai-content h1,
+.ai-content h2,
+.ai-content strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ════════════════════════════════════════════
+   ✨ THEME FADE TRANSITION
+═══════════════════════════════════════════════ */
+
+html.theme-fade {
+  transition: background-color .5s ease, color .5s ease;
+}
+* {
+  transition: background-color .4s ease, color .4s ease;
+}
+/* ════════════════════════════════════════════
+   🌌 COSMIC DEEP SPACE – GLOBAL BACKGROUND
+════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════
+   🌌 REAL MILKY WAY GALAXY BACKGROUND
+════════════════════════════════════════════ */
+
+.galaxy {
+  .galaxy {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: -1;
+}
+
+  background: 
+    /* Dark space base */
+    radial-gradient(circle at 50% 120%, #00010a, #000000 70%),
+    /* Nebula purple glow */
+    radial-gradient(circle at 50% 50%, rgba(110, 10, 170, 0.6), transparent 60%),
+    /* Blue cosmic glow */
+    radial-gradient(circle at 30% 40%, rgba(40, 80, 255, 0.35), transparent 70%),
+    /* Pink star belt glow */
+    radial-gradient(circle at 70% 60%, rgba(255, 120, 200, 0.3), transparent 70%),
+    #000000;
+}
+
+/* 🌌 Milky Way nebula strip */
+.galaxy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: 
+    linear-gradient(90deg, rgba(180, 120, 255, 0.06), rgba(255, 150, 230, 0.25), rgba(150, 80, 255, 0.1));
+  opacity: 0.8;
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+/* ⭐ STARFIELD */
+.stars,
+.stars2,
+.stars3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 200%;
+  background-repeat: repeat;
+  pointer-events: none;
+}
+
+.stars {
+  background-image: 
+    radial-gradient(1px 1px at 20% 30%, #ffffff 60%, transparent),
+    radial-gradient(1px 1px at 80% 60%, #ffffff 60%, transparent),
+    radial-gradient(1px 1px at 40% 80%, #ffffff 60%, transparent),
+    radial-gradient(1px 1px at 60% 20%, #ffffff 60%, transparent);
+  animation: starDrift 180s linear infinite;
+  opacity: 0.7;
+}
+
+.stars2 {
+  background-image: 
+    radial-gradient(2px 2px at 30% 50%, #aabaff 70%, transparent),
+    radial-gradient(2px 2px at 60% 30%, #aabaff 70%, transparent),
+    radial-gradient(2px 2px at 80% 70%, #aabaff 70%, transparent);
+  animation: starDrift 240s linear infinite reverse;
+  opacity: 0.45;
+}
+
+.stars3 {
+  background-image: 
+    radial-gradient(3px 3px at 50% 50%, #e8d9ff 80%, transparent),
+    radial-gradient(3px 3px at 20% 90%, #e8d9ff 80%, transparent);
+  animation: starDrift 360s linear infinite;
+  opacity: 0.3;
+}
+
+/* ⭐ Movement */
+@keyframes starDrift {
+  from { transform: translate(0,0) scale(1); }
+  to   { transform: translate(-400px,-300px) scale(1.3); }
+}
+
+/* ⭐ Nebula breathing effect */
+@keyframes nebulaPulse {
+  0% { filter: brightness(1); }
+  100% { filter: brightness(1.3); }
+}
+
+.galaxy::before {
+  animation: nebulaPulse 6s ease-in-out infinite alternate;
+}
+
+/* SUGGESTION DROPDOWN */
+.suggestions-box button:hover {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.045);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 0 30px rgba(0,0,0,0.25);
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+/* REMOVE SCROLLBAR */
+.suggestions-box::-webkit-scrollbar {
+  width: 0;
+}
+/* AUTH INPUT */
+.auth-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text);
+  outline: none;
+}
+
+.auth-input:focus {
+  border-color: var(--accent);
+}
+
+/* MODAL ANIMATION */
+@keyframes fadeIn {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0 }
+  to { transform: scale(1); opacity: 1 }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.25s ease-out;
+}
