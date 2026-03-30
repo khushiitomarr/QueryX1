@@ -1,33 +1,65 @@
 import express from "express";
 import axios from "axios";
-import dotenv from "dotenv";
-dotenv.config();
+import SearchHistory from "../models/SearchHistory.js";
+import auth from "../middleware/auth.js";
 
 const router = express.Router();
 
+const detectIntent = (q) => {
+  q = q.toLowerCase();
+  if (q.includes("learn")) return "learning";
+  if (q.includes("buy")) return "shopping";
+  if (q.includes("how")) return "guide";
+  return "general";
+};
+
+// SEARCH
 router.get("/", async (req, res) => {
   const q = req.query.q;
   if (!q) return res.json({ results: [] });
 
-  try {
-    const r = await axios.get(
-      `https://serpapi.com/search.json?q=${q}&api_key=${process.env.SERP_API_KEY}`
-    );
+  const response = await axios.get("https://serpapi.com/search.json", {
+    params: {
+      q,
+      api_key: process.env.SERP_API_KEY
+    }
+  });
 
-    const organic = r.data.organic_results || [];
+  const results = (response.data.organic_results || []).map(r => ({
+    title: r.title,
+    description: r.snippet,
+    url: r.link
+  }));
 
-    const results = organic.map((obj) => ({
-      title: obj.title,
-      description: obj.snippet,
-      url: obj.link
-    }));
+  res.json({ results, intent: detectIntent(q) });
+});
 
-    res.json({ results });
+// SAVE HISTORY
+router.post("/save", auth, async (req, res) => {
+  const { query } = req.body;
 
-  } catch (err) {
-    console.log("❌ ERROR:", err.message);
-    res.json({ results: [] });
-  }
+  await SearchHistory.findOneAndUpdate(
+    { user: req.userId, query },
+    { user: req.userId, query },
+    { upsert: true }
+  );
+
+  res.json({ success: true });
+});
+
+// GET HISTORY
+router.get("/history", auth, async (req, res) => {
+  const data = await SearchHistory.find({ user: req.userId })
+    .sort({ createdAt: -1 })
+    .limit(10);
+
+  res.json(data);
+});
+
+// CLEAR HISTORY
+router.delete("/history", auth, async (req, res) => {
+  await SearchHistory.deleteMany({ user: req.userId });
+  res.json({ message: "Cleared" });
 });
 
 export default router;

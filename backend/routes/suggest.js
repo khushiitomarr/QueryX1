@@ -1,30 +1,53 @@
 import express from "express";
-import Search from "../models/Search.js"; // or any collection you store queries in
+import axios from "axios";
 
 const router = express.Router();
 
+// 🔥 Cache
+const suggestCache = {};
+const CACHE_TTL = 60 * 1000;
+
 router.get("/", async (req, res) => {
+  const q = req.query.q;
+  if (!q) return res.json([]);
+
+  const lowerQ = q.toLowerCase();
+
+  // ✅ Cache hit
+  if (
+    suggestCache[lowerQ] &&
+    Date.now() - suggestCache[lowerQ].timestamp < CACHE_TTL
+  ) {
+    return res.json(suggestCache[lowerQ].data);
+  }
+
   try {
-    const { q } = req.query;
+    // 🔥 FREE GOOGLE API
+    const response = await axios.get(
+      "https://suggestqueries.google.com/complete/search",
+      {
+        params: {
+          client: "firefox",
+          q
+        }
+      }
+    );
 
-    if (!q || q.length < 2) {
-      return res.json({ suggestions: [] });
-    }
+    const suggestions = response.data[1] || [];
 
-    // 🔎 SIMPLE regex-based suggestion
-    const results = await Search.find({
-      query: { $regex: q, $options: "i" },
-    })
-      .limit(6)
-      .select("query -_id");
+    const topSeven = suggestions.slice(0, 7);
 
-    res.json({
-      suggestions: results.map((r) => r.query),
-    });
+    // cache store
+    suggestCache[lowerQ] = {
+      data: topSeven,
+      timestamp: Date.now()
+    };
+
+    res.json(topSeven);
 
   } catch (err) {
-    console.error("SUGGEST ERROR:", err);
-    res.status(500).json({ suggestions: [] });
+    console.log("Suggest error:", err.message);
+    res.json([]);
   }
 });
 

@@ -1,13 +1,13 @@
 import jwt from "jsonwebtoken";
 
 export default function auth(req, res, next) {
-  const authHeader = req.headers.authorization;
+  const header = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "No token provided" });
+  if (!header || !header.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "No token" });
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = header.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

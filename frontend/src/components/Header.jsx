@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import qxLogo from "../assets/qx-logo.png";
 import AuthModal from "./AuthModal";
 
 export default function Header({ theme, setTheme, children }) {
@@ -12,9 +11,8 @@ export default function Header({ theme, setTheme, children }) {
     if (token && name) setUser(name);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("name");
+  const logout = () => {
+    localStorage.clear();
     setUser(null);
   };
 
@@ -22,40 +20,46 @@ export default function Header({ theme, setTheme, children }) {
     <>
       <header
         className="
-          w-full px-8 py-4 fixed top-0 left-0 z-20
-          backdrop-blur-md bg-white/5
+          fixed top-0 left-0 w-full z-50
+          backdrop-blur-xl bg-white/5
           border-b border-white/10
         "
-        style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}
       >
-        <div className="flex items-center gap-6">
-          {/* LOGO */}
-          <img
-            src={qxLogo}
-            alt="QX Logo"
-            className="h-24 pointer-events-none select-none"
-          />
+        <div className="w-full px-6 py-3 flex items-center justify-between">
 
-          {/* SEARCH BAR SLOT */}
-          <div className="flex-1">{children}</div>
+          {/* LEFT LOGO */}
+         <img 
+  src="/src/assets/qx-logo.png" 
+  className="h-16 w-auto object-contain scale-350 origin-left"
+/>
+        
+
+          {/* CENTER SEARCH */}
+          <div className="w-full max-w-[600px] hidden md:block">
+            {children}
+          </div>
 
           {/* RIGHT SIDE */}
           <div className="flex items-center gap-4">
-            {/* THEME */}
+
+            {/* THEME BUTTON */}
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="w-10 h-10 rounded-full bg-white/10"
+              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 transition"
             >
-              {theme === "dark" ? "🌑" : "☀️"}
+              {theme === "dark" ? "🌙" : "☀️"}
             </button>
 
-            {/* AUTH */}
+            {/* USER */}
             {user ? (
               <>
-                <span className="text-sm">Hi, {user}</span>
+                <span className="text-sm hidden sm:block">
+                  Hi, {user}
+                </span>
+
                 <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 rounded-full bg-red-500 text-white text-sm"
+                  onClick={logout}
+                  className="px-4 py-2 rounded-full bg-red-500 text-white text-sm hover:bg-red-600"
                 >
                   Logout
                 </button>
@@ -66,7 +70,7 @@ export default function Header({ theme, setTheme, children }) {
                 className="px-5 py-2 rounded-full text-white"
                 style={{ backgroundColor: "var(--accent)" }}
               >
-                Login / Signup
+                Login
               </button>
             )}
           </div>

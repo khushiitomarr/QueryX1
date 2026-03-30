@@ -1,201 +1,210 @@
 import { Search, Mic } from "lucide-react";
-import { useRef } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useState, useEffect } from "react";
 
 export default function SearchBar({
-  query,
-  setQuery,
-  setSearched,
-  results,
-  setResults,
-  ai,
-  setAi,
-  loading,
-  setLoading,
-  aiLoading,
-  setAiLoading,
-  compact = false,
+  query, setQuery, setSearched,
+  setResults, setAi, setLoading,
+  setAiLoading, setIntent, compact
 }) {
-  const controllerRef = useRef(null);
-  const searchingRef = useRef(false);
 
-  const handleSearch = async () => {
-    if (!query.trim() || searchingRef.current) return;
+  const [listening, setListening] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert("Please login to search");
-      return;
-    }
+  // 🔍 SEARCH FUNCTION
+  const handleSearch = async (customQuery) => {
+    const searchQuery = customQuery || query;
+    if (!searchQuery.trim()) return;
 
-    controllerRef.current?.abort();
-    controllerRef.current = new AbortController();
-    searchingRef.current = true;
+    setQuery(searchQuery);
+    setShowDropdown(false);
 
     setSearched(true);
     setLoading(true);
     setAiLoading(true);
-    setAi("");
 
     try {
-      // 🔍 SEARCH FIRST
-      const searchRes = await fetch(
-        `http://localhost:5000/api/search?q=${encodeURIComponent(query)}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controllerRef.current.signal,
-        }
+      const res = await fetch(
+        `http://localhost:5000/api/search?q=${encodeURIComponent(searchQuery)}`
       );
+      const data = await res.json();
 
-      const searchData = await searchRes.json();
-      setResults(searchData.results || []);
-      setLoading(false);
+      setResults(data.results);
+      setIntent(data.intent);
 
-      // 🤖 AI (BACKGROUND)
-      fetch("http://localhost:5000/api/ai", {
+      const aiRes = await fetch("http://localhost:5000/api/ai", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ query }),
-      })
-        .then((res) => res.json())
-        .then((data) => setAi(data.answer || ""))
-        .catch(() => setAi("AI unavailable"))
-        .finally(() => setAiLoading(false));
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: searchQuery })
+      });
 
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        console.error(err);
-        setResults([]);
-        setAi("AI unavailable");
-        setLoading(false);
-        setAiLoading(false);
-      }
+      const aiData = await aiRes.json();
+      setAi(aiData.answer);
+
+    } catch {
+      console.log("Error");
     }
 
-    searchingRef.current = false;
+    setLoading(false);
+    setAiLoading(false);
+  };
+
+  // 🔥 FETCH SUGGESTIONS
+  useEffect(() => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/suggest?q=${query}`
+        );
+        const data = await res.json();
+        setSuggestions(data || []);
+        setShowDropdown(true);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // 🎤 VOICE SEARCH
+  const startVoice = () => {
+    if (!("webkitSpeechRecognition" in window)) return;
+
+    const recognition = new window.webkitSpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-IN";
+
+    let finalTranscript = "";
+
+    setListening(true);
+    recognition.start();
+
+    recognition.onresult = (event) => {
+      let interim = "";
+
+      for (let i = 0; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript;
+
+        if (event.results[i].isFinal) {
+          finalTranscript += text;
+        } else {
+          interim += text;
+        }
+      }
+
+      setQuery(finalTranscript + interim);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+
+      if (finalTranscript.trim()) {
+        handleSearch(finalTranscript);
+      }
+    };
   };
 
   return (
-    <div className={`${compact ? "w-full max-w-[600px]" : "w-[900px] max-w-[95vw]"}`}>
-      
-      {/* 🔍 SEARCH INPUT */}
-      <div
-        className="relative rounded-full border border-white/10 shadow-xl"
-        style={{ backgroundColor: "var(--card)" }}
-      >
-        <Search
-          size={22}
-          className="absolute left-6 top-1/2 -translate-y-1/2"
-          style={{ color: "var(--accent)" }}
-        />
+    <div className={compact ? "w-full max-w-[650px]" : "w-full max-w-[750px]"}>
 
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          placeholder="Search QueryX..."
-          className="w-full py-4 pl-16 pr-16 rounded-full bg-transparent outline-none"
-          style={{ color: "var(--text)" }}
-        />
+      {/* SEARCH BOX */}
+      <div className="relative">
 
-        <Mic
-          size={22}
-          className="absolute right-6 top-1/2 -translate-y-1/2"
-          style={{ color: "var(--accent)" }}
-        />
-      </div>
+        <div className="
+          flex items-center
+          bg-white/5 backdrop-blur-lg
+          border border-white/10
+          rounded-full px-5 py-3
+          shadow-lg
+          focus-within:shadow-[0_0_25px_rgba(122,92,255,0.5)]
+        ">
 
-      {/* 🧠 AI + RESULTS */}
-      {!compact && (loading || ai || results.length > 0) && (
-        <div className="mt-10 w-full max-w-[1100px] flex flex-col md:flex-row gap-8">
+          <Search
+            size={20}
+            onClick={() => handleSearch()}
+            className="text-white/60 cursor-pointer"
+          />
 
-          {/* 🤖 AI ANSWER */}
-          <div
-            className="w-full md:w-[35%] rounded-xl p-6 shadow"
-            style={{ backgroundColor: "var(--card)" }}
-          >
-            <h2 className="text-xl font-bold mb-4">AI Answer</h2>
+          <input
+            value={query}
+            onFocus={() => suggestions.length && setShowDropdown(true)}
+            onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (activeIndex >= 0) {
+                  handleSearch(suggestions[activeIndex]);
+                } else {
+                  handleSearch();
+                }
+              }
 
-            {aiLoading && (
-              <p className="opacity-70 animate-pulse">Generating answer…</p>
-            )}
+              if (e.key === "ArrowDown") {
+                setActiveIndex((prev) =>
+                  prev < suggestions.length - 1 ? prev + 1 : 0
+                );
+              }
 
-            {!aiLoading && ai && (
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  h2: ({ children }) => (
-                    <h2 className="text-lg font-bold mt-4 mb-2">
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children }) => (
-                    <h3 className="text-base font-semibold mt-3 mb-1">
-                      {children}
-                    </h3>
-                  ),
-                  p: ({ children }) => (
-                    <p className="leading-relaxed mb-2 opacity-90">
-                      {children}
-                    </p>
-                  ),
-                  ul: ({ children }) => (
-                    <ul className="list-disc pl-5 mb-3 space-y-1">
-                      {children}
-                    </ul>
-                  ),
-                  li: ({ children }) => (
-                    <li className="opacity-90">{children}</li>
-                  ),
-                  pre: ({ children }) => (
-                    <pre className="bg-black/40 rounded-lg p-3 text-sm overflow-x-auto mb-3">
-                      {children}
-                    </pre>
-                  ),
-                  code: ({ children }) => (
-                    <code className="bg-black/30 px-1 py-0.5 rounded text-sm">
-                      {children}
-                    </code>
-                  ),
-                }}
+              if (e.key === "ArrowUp") {
+                setActiveIndex((prev) =>
+                  prev > 0 ? prev - 1 : suggestions.length - 1
+                );
+              }
+            }}
+            placeholder="Search QueryX..."
+            className="flex-1 mx-3 bg-transparent outline-none text-white"
+          />
+
+          <Mic
+            size={20}
+            onClick={startVoice}
+            className={`cursor-pointer ${
+              listening ? "text-red-400 animate-pulse" : "text-white/60"
+            }`}
+          />
+        </div>
+
+        {/* 🔥 DROPDOWN */}
+        {showDropdown && suggestions.length > 0 && (
+          <div className="
+            absolute w-full mt-2
+            bg-[#1e1e1e]/90 backdrop-blur-xl
+            border border-white/10
+            rounded-xl shadow-xl
+            overflow-hidden animate-dropdown
+          ">
+
+            {suggestions.map((item, i) => (
+              <div
+                key={i}
+                onMouseDown={() => handleSearch(item)}
+                className={`
+                  px-4 py-3 cursor-pointer flex items-center gap-3
+                  ${i === activeIndex ? "bg-white/10" : "hover:bg-white/5"}
+                `}
               >
-                {ai}
-              </ReactMarkdown>
-            )}
-          </div>
-
-          {/* 🌐 SEARCH RESULTS */}
-          <div className="flex-1 flex flex-col gap-4">
-            {loading && <p className="opacity-70">Searching…</p>}
-
-            {!loading && results.length === 0 && (
-              <p className="opacity-60">No results found</p>
-            )}
-
-            {results.map((item, index) => (
-              <a
-                key={index}
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                className="p-5 rounded-xl shadow hover:scale-[1.01] transition"
-                style={{ backgroundColor: "var(--card)" }}
-              >
-                <h3 className="text-lg font-semibold mb-1">
-                  {item.title}
-                </h3>
-                <p className="text-sm opacity-80">
-                  {item.description}
-                </p>
-              </a>
+                🔍 {item}
+              </div>
             ))}
           </div>
-        </div>
+        )}
+      </div>
+
+      {listening && (
+        <p className="text-center text-sm mt-2 text-red-400 animate-pulse">
+          🎤 Listening...
+        </p>
       )}
+
     </div>
   );
 }

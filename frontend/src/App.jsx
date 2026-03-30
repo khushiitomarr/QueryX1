@@ -2,130 +2,129 @@ import { useEffect, useState } from "react";
 import Header from "./components/Header";
 import SearchBar from "./components/SearchBar";
 import Footer from "./components/Footer";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useNavigate } from "react-router-dom";
 
 export default function App() {
+  const navigate = useNavigate();
+
   const [theme, setTheme] = useState("dark");
   const [searched, setSearched] = useState(false);
 
-  // 🔍 SHARED SEARCH STATE
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [ai, setAi] = useState("");
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [intent, setIntent] = useState("");
 
-  // Apply theme
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // Load saved theme
   useEffect(() => {
     setTheme(localStorage.getItem("theme") || "dark");
   }, []);
 
   return (
-    <div
-      className="relative min-h-screen flex flex-col overflow-hidden"
-      style={{ background: "var(--bg)" }}
-    >
-      {/* BACKGROUND */}
-      <div className="stars" />
-      <div className="stars2" />
-      <div className="stars3" />
-
-      {/* HEADER */}
+    <div className="min-h-screen flex flex-col justify-between" style={{ background: "var(--bg)" }}>
+      
       <Header theme={theme} setTheme={setTheme}>
         {searched && (
           <SearchBar
             query={query}
             setQuery={setQuery}
             setSearched={setSearched}
-            results={results}
             setResults={setResults}
-            ai={ai}
             setAi={setAi}
-            loading={loading}
             setLoading={setLoading}
-            aiLoading={aiLoading}
             setAiLoading={setAiLoading}
+            setIntent={setIntent}
             compact
           />
         )}
       </Header>
 
-      {/* MAIN */}
-      <main
-        className={`flex flex-col items-center w-full relative z-10 grow transition-all duration-500 ${
-          searched ? "pt-24" : "pt-32"
-        }`}
-        style={{ color: "var(--text)" }}
-      >
+      <main className="flex-grow flex flex-col items-center pt-24">
+        
         {!searched && (
           <>
-            <h1 className="text-5xl font-extrabold mb-12 text-center">
-              Search smarter with{" "}
-              <span style={{ color: "var(--accent)" }}>QueryX</span>
+            <h1 className="text-5xl font-bold mb-10 text-center">
+              Search smarter with <span style={{ color: "var(--accent)" }}>QueryX</span>
             </h1>
 
             <SearchBar
               query={query}
               setQuery={setQuery}
               setSearched={setSearched}
-              results={results}
               setResults={setResults}
-              ai={ai}
               setAi={setAi}
-              loading={loading}
               setLoading={setLoading}
-              aiLoading={aiLoading}
               setAiLoading={setAiLoading}
+              setIntent={setIntent}
             />
           </>
         )}
 
-        {/* RESULTS + AI */}
         {searched && (
-          <div className="w-full max-w-[1100px] mt-10 flex flex-col md:flex-row gap-8">
-            {/* AI BOX */}
-            <div
-              className="w-full md:w-[35%] rounded-xl p-6 shadow"
-              style={{ backgroundColor: "var(--card)" }}
-            >
-              <h2 className="text-xl font-bold mb-3">AI Answer</h2>
+          <div className="w-full max-w-[1100px] grid md:grid-cols-[300px_1fr] gap-8 mt-10">
+            
+            {/* LEFT */}
+            <div className="space-y-4">
+              
+              {intent && (
+                <div className="p-3 rounded-lg bg-gray-800">
+                  {intent === "learning" && "🎓 Learning Mode"}
+                  {intent === "shopping" && "🛒 Shopping Mode"}
+                  {intent === "guide" && "📘 Guide Mode"}
+                </div>
+              )}
 
-              {aiLoading && <p className="opacity-70">Thinking…</p>}
-              {!aiLoading && ai && (
-                <p className="leading-relaxed opacity-90">{ai}</p>
-              )}
-              {!aiLoading && !ai && (
-                <p className="opacity-50">No AI response</p>
-              )}
+              <div className="p-6 rounded-xl bg-gray-900">
+                {aiLoading ? (
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-3 bg-gray-700 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+                  </div>
+                ) : ai ? (
+                  <>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {ai.slice(0, 200)}
+                    </ReactMarkdown>
+
+                    {ai.length > 200 && (
+                      <button
+                        onClick={() => {
+                          localStorage.setItem("aiData", ai);
+                          navigate("/ai");
+                        }}
+                        className="text-purple-400"
+                      >
+                        Read more →
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <p>No AI response</p>
+                )}
+              </div>
             </div>
 
-            {/* SEARCH RESULTS */}
-            <div className="flex-1 flex flex-col gap-4">
-              {loading && <p className="opacity-70">Searching…</p>}
+            {/* RIGHT */}
+            <div className="space-y-4">
+              {loading && <p>Searching...</p>}
 
-              {!loading && results.length === 0 && (
-                <p className="opacity-60">No results found</p>
-              )}
-
-              {results.map((item, index) => (
-                <a
-                  key={index}
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p-5 rounded-xl shadow hover:scale-[1.01] transition"
-                  style={{ backgroundColor: "var(--card)" }}
-                >
-                  <h3 className="text-lg font-semibold mb-1">{item.title}</h3>
-                  <p className="text-sm opacity-80">{item.description}</p>
+              {results.map((r, i) => (
+                <a key={i} href={r.url} target="_blank" rel="noreferrer"
+                   className="block p-4 bg-gray-800 rounded-lg hover:bg-gray-700">
+                  <h3>{r.title}</h3>
+                  <p>{r.description}</p>
                 </a>
               ))}
             </div>
+
           </div>
         )}
       </main>
