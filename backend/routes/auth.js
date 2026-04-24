@@ -5,32 +5,123 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
+/* =============================
+   🔐 SIGNUP
+============================= */
 router.post("/signup", async (req, res) => {
-  const { name, email, password } = req.body;
+  try {
+    const { name, email, password } = req.body;
 
-  const existing = await User.findOne({ email });
-  if (existing) return res.status(400).json({ message: "User exists" });
+    // ✅ Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
-  const hash = await bcrypt.hash(password, 10);
-  const user = await User.create({ name, email, password: hash });
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
 
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+    // ✅ Normalize email
+    const emailLower = email.toLowerCase();
 
-  res.json({ token, name: user.name });
+    // ✅ Check existing user
+    let user = await User.findOne({ email: emailLower });
+    if (user) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    // ✅ Hash password
+    const hashed = await bcrypt.hash(password, 10);
+
+    // ✅ Create user
+    user = await User.create({
+      name,
+      email: emailLower,
+      password: hashed,
+    });
+
+    // ✅ Generate token
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // ✅ Response
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+      message: "Signup successful",
+    });
+
+  } catch (error) {
+    console.error("SIGNUP ERROR:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
+/* =============================
+   🔐 LOGIN
+============================= */
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email});
-  if (!user) return res.status(400).json({ message: "User not found" });
+    // ✅ Validation
+    if (!email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(400).json({ message: "Wrong password" });
+    const emailLower = email.toLowerCase();
 
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+    // ✅ Find user
+    const user = await User.findOne({ email: emailLower });
 
-  res.json({ token, name: user.name });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // ✅ Check password
+    const match = await bcrypt.compare(password, user.password);
+
+    if (!match) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // ✅ Generate token
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // ✅ Response
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+      message: "Login successful",
+    });
+
+  } catch (error) {
+    console.error("LOGIN ERROR:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 export default router;

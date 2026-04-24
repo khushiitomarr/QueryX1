@@ -42,8 +42,9 @@ export default function AuthModal({ onClose, setUser }) {
       }
 
       localStorage.setItem("token", data.token);
-      localStorage.setItem("name", data.name);
-      setUser(data.name);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+      window.location.reload();
       onClose();
     } catch {
       setError("Server not reachable");

@@ -1,19 +1,27 @@
 import jwt from "jsonwebtoken";
 
-export default function auth(req, res, next) {
-  const header = req.headers.authorization;
+export default function (req, res, next) {
+  const authHeader = req.headers.authorization;
 
-  if (!header || !header.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "No token" });
+  // ✅ No token → allow guest
+  if (!authHeader) {
+    return next();
   }
 
-  const token = header.split(" ")[1];
+  const token = authHeader.split(" ")[1];
+
+  // ✅ invalid token → skip
+  if (!token || token === "null" || token === "undefined") {
+    return next();
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id;
-    next();
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
+    req.user = decoded;
+  } catch (err) {
+    console.log("JWT ERROR:", err.message);
+    return next(); // don't crash backend
   }
+
+  next();
 }

@@ -1,80 +1,92 @@
+import qxLogo from "../assets/qx-logo.png";
 import {
   Github,
   Linkedin,
   Twitter,
   Instagram,
-  MessageCircle,
+  Facebook,
+  MessageCircle
 } from "lucide-react";
 
 export default function Footer() {
   return (
     <footer
-      className="
-        w-full mt-10 px-4 py-5
-        border-t border-white/10
-        backdrop-blur-md bg-white/5
-      "
+      className="mt-10 px-6 py-6 transition-colors"
+      style={{ backgroundColor: "var(--card)" }}
     >
-      <div className="flex flex-col items-center gap-2 text-center">
-        {/* SOCIAL */}
-        <div className="flex gap-4 opacity-60">
+      {/* CENTER: QUICK LINKS + SOCIAL */}
+<div className="flex flex-col items-center text-center">
 
-  {/* GitHub */}
-  <a 
-    href="https://github.com/your-username"
+  {/* SOCIAL ICONS (NEXT LINE, CENTERED) */}
+  {/* SOCIAL ICONS */}
+<div className="flex gap-5 opacity-60">
+  <a
+    href="https://github.com/"
     target="_blank"
     rel="noreferrer"
-    className="hover:scale-110 transition"
+    className="hover:opacity-100 hover:scale-110 transition"
+    style={{ color: "var(--text)" }}
   >
     <Github size={20} />
   </a>
 
-  {/* LinkedIn */}
-  <a 
-    href="https://linkedin.com/in/your-username"
+  <a
+    href="https://linkedin.com/"
     target="_blank"
     rel="noreferrer"
-    className="hover:scale-110 transition"
+    className="hover:opacity-100 hover:scale-110 transition"
+    style={{ color: "var(--text)" }}
   >
     <Linkedin size={20} />
   </a>
 
-  {/* Twitter (X) */}
-  <a 
-    href="https://twitter.com/your-username"
+  <a
+    href="https://twitter.com/"
     target="_blank"
     rel="noreferrer"
-    className="hover:scale-110 transition"
+    className="hover:opacity-100 hover:scale-110 transition"
+    style={{ color: "var(--text)" }}
   >
     <Twitter size={20} />
   </a>
 
-  {/* Instagram */}
-  <a 
-    href="https://instagram.com/your-username"
+  <a
+    href="https://instagram.com/"
     target="_blank"
     rel="noreferrer"
-    className="hover:scale-110 transition"
+    className="hover:opacity-100 hover:scale-110 transition"
+    style={{ color: "var(--text)" }}
   >
     <Instagram size={20} />
   </a>
 
-  {/* WhatsApp */}
-  <a 
-    href="https://wa.me/919876543210"
+  <a
+    href="https://facebook.com/"
     target="_blank"
     rel="noreferrer"
-    className="hover:scale-110 transition hover:text-green-400"
+    className="hover:opacity-100 hover:scale-110 transition"
+    style={{ color: "var(--text)" }}
+  >
+    <Facebook size={20} />
+  </a>
+
+  <a
+    href="https://wa.me/XXXXXXXXXX"
+    target="_blank"
+    rel="noreferrer"
+    className="hover:opacity-100 hover:scale-110 transition"
+    style={{ color: "var(--text)" }}
   >
     <MessageCircle size={20} />
   </a>
+</div>
 
 </div>
 
-        {/* COPYRIGHT */}
-        <p className="text-xs opacity-40">
-          © {new Date().getFullYear()} QueryX
-        </p>
+
+      {/* BOTTOM LINE */}
+      <div className="mt-6 pt-4 text-center text-xm opacity-50 ">
+        © {new Date().getFullYear()} QueryX. All rights reserved.
       </div>
     </footer>
   );

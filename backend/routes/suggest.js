@@ -1,54 +1,84 @@
 import express from "express";
+import Search from "../models/Search.js"; // or any collection you store queries in
 import axios from "axios";
 
 const router = express.Router();
 
-// 🔥 Cache
-const suggestCache = {};
-const CACHE_TTL = 60 * 1000;
 
-router.get("/", async (req, res) => {
-  const q = req.query.q;
-  if (!q) return res.json([]);
+router.get("/suggestions", async (req, res) => {
+  const q = req.query.q?.trim().toLowerCase();
 
-  const lowerQ = q.toLowerCase();
-
-  // ✅ Cache hit
-  if (
-    suggestCache[lowerQ] &&
-    Date.now() - suggestCache[lowerQ].timestamp < CACHE_TTL
-  ) {
-    return res.json(suggestCache[lowerQ].data);
+  if (!q) {
+    return res.json([
+      "youtube",
+      "google translate",
+      "weather today",
+      "news today",
+      "instagram login"
+    ]);
   }
 
   try {
-    // 🔥 FREE GOOGLE API
-    const response = await axios.get(
-      "https://suggestqueries.google.com/complete/search",
-      {
-        params: {
-          client: "firefox",
-          q
-        }
-      }
-    );
+    // 🔹 1. Get from DB (history)
+    const dbResults = await Search.find({
+      query: { $regex: `^${q}`, $options: "i" }
+    }).limit(5);
 
-    const suggestions = response.data[1] || [];
+    const dbSuggestions = dbResults.map(item => item.query);
 
-    const topSeven = suggestions.slice(0, 7);
+    // 🔹 2. Default smart suggestions (Google-style)
+  // 🔹 2. Google suggestions
+let googleSuggestions = [];
 
-    // cache store
-    suggestCache[lowerQ] = {
-      data: topSeven,
-      timestamp: Date.now()
-    };
+try {
+  const googleRes = await axios.get(
+    "https://suggestqueries.google.com/complete/search",
+    {
+      params: { client: "firefox", q },
+      headers: { "User-Agent": "Mozilla/5.0" }
+    }
+  );
 
-    res.json(topSeven);
+  googleSuggestions = googleRes.data[1];
+} catch (err) {
+  console.log("⚠ Google suggestions failed");
+}
 
-  } catch (err) {
-    console.log("Suggest error:", err.message);
-    res.json([]);
+// 🔹 3. Merge + remove duplicates
+let finalSuggestions = [...new Set([
+  ...dbSuggestions,
+  ...googleSuggestions
+])];
+
+// 🔥 fallback if empty
+if (finalSuggestions.length === 0) {
+  finalSuggestions = [
+    q,
+    `${q} tutorial`,
+    `${q} meaning`,
+    `${q} examples`,
+    `${q} course`,
+    `${q} in hindi`
+  ];
+}
+
+res.json(finalSuggestions.slice(0, 7));
+
   }
+   catch (err) {
+  console.error("❌ GOOGLE ERROR:", err.message);
+
+  const fallback = [
+    q,
+    `${q} tutorial`,
+    `${q} meaning`,
+    `${q} examples`,
+    `${q} course`,
+    `${q} in hindi`
+  ];
+
+  res.json(fallback);
+}
 });
 
 export default router;

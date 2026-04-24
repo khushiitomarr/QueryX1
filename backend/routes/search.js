@@ -1,65 +1,106 @@
 import express from "express";
 import axios from "axios";
-import SearchHistory from "../models/SearchHistory.js";
-import auth from "../middleware/auth.js";
+import dotenv from "dotenv";
+import Search from "../models/Search.js";
+import mongoose from "mongoose";
 
+dotenv.config();
 const router = express.Router();
 
-const detectIntent = (q) => {
-  q = q.toLowerCase();
-  if (q.includes("learn")) return "learning";
-  if (q.includes("buy")) return "shopping";
-  if (q.includes("how")) return "guide";
-  return "general";
-};
-
-// SEARCH
+/* =============================
+🔍 SEARCH + SAVE HISTORY
+============================= */
 router.get("/", async (req, res) => {
-  const q = req.query.q;
+  try {
+    
+    const q = req.query.q;
+    const page = parseInt(req.query.page) || 1;
+    const start = (page - 1) * 10;
+  const userId = req.user?.id;
+
   if (!q) return res.json({ results: [] });
 
-  const response = await axios.get("https://serpapi.com/search.json", {
-    params: {
-      q,
-      api_key: process.env.SERP_API_KEY
-    }
+  if (userId) {
+  await Search.create({
+    userId: userId,
+    query: q.trim().toLowerCase()
   });
+}
 
-  const results = (response.data.organic_results || []).map(r => ({
-    title: r.title,
-    description: r.snippet,
-    url: r.link
-  }));
+    const r = await axios.get(
+      `https://serpapi.com/search.json?q=${encodeURIComponent(q)}&start=${start}&api_key=${process.env.SERP_API_KEY}`
+    );
 
-  res.json({ results, intent: detectIntent(q) });
+    const organic = r.data.organic_results || [];
+
+    let results = organic.map((obj) => ({
+      title: obj.title,
+      description: obj.snippet,
+      url: obj.link
+    }));
+
+    if (results.length === 0) {
+      results = [{
+        title: `Search result for "${q}"`,
+        description: `No direct results found.`,
+        url: `https://www.google.com/search?q=${encodeURIComponent(q)}`
+      }];
+    }
+
+    res.json({ results });
+  } catch (err) {
+    console.error("Search Error:", err.message);
+    res.json({ results: [] });
+  } 
 });
 
-// SAVE HISTORY
-router.post("/save", auth, async (req, res) => {
-  const { query } = req.body;
+/* =============================
+📜 GET HISTORY
+============================= */
+router.get("/history", async (req, res) => {
+  try {
+const userId = req.user?.id;
 
-  await SearchHistory.findOneAndUpdate(
-    { user: req.userId, query },
-    { user: req.userId, query },
-    { upsert: true }
-  );
+if (!userId) return res.json([]); // 🔥 no history for guest
 
-  res.json({ success: true });
+const history = await Search.aggregate([
+  { $match: { userId } },
+  { $sort: { createdAt: -1 } },
+  {
+    $group: {
+      _id: "$query",
+      doc: { $first: "$$ROOT" }
+    }
+  },
+  { $replaceRoot: { newRoot: "$doc" } },
+  { $limit: 10 }
+]);
+
+    res.json(history);
+  } catch (err) {
+    console.error("History Error:", err);
+    res.status(500).json([]);
+  }
 });
 
-// GET HISTORY
-router.get("/history", auth, async (req, res) => {
-  const data = await SearchHistory.find({ user: req.userId })
-    .sort({ createdAt: -1 })
-    .limit(10);
+/* =============================
+🗑 CLEAR HISTORY
+============================= */
+router.delete("/history", async (req, res) => {
+  try {
+    const userId = req.user?.id;
 
-  res.json(data);
-});
+    if (!userId) {
+  return res.status(401).json({ message: "Login required" });
+}
 
-// CLEAR HISTORY
-router.delete("/history", auth, async (req, res) => {
-  await SearchHistory.deleteMany({ user: req.userId });
-  res.json({ message: "Cleared" });
+await Search.deleteMany({ userId });// ✅ FIXED
+
+    res.json({ message: "Cleared" });
+  } catch (err) {
+    console.error("Failed to clear history", err);
+    res.status(500).json({ message: "Error" });
+  }
 });
 
 export default router;
