@@ -27,8 +27,9 @@ app.use(cors({
     "http://localhost:5173",
     "https://query-x1.vercel.app"
   ],
-  methods: ["GET", "POST", "DELETE"], // ✅ ADD DELETE
-  allowedHeaders: ["Content-Type", "Authorization"]
+  methods: ["GET", "POST", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
 }));
 
 // Body parser
