@@ -91,7 +91,7 @@ export default function SearchBar({
 
       try {
         const res = await fetch(
-          `http://localhost:5000/api/suggest/suggestions?q=${text}`
+          `https://queryx1.onrender.com/api/suggest/suggestions?q=${text}`
         );
 
         const data = await res.json();
@@ -136,7 +136,7 @@ export default function SearchBar({
 
 
     if (text.length > 2 && navigator.onLine) {
-      fetch(`http://localhost:5000/api/search?q=${encodeURIComponent(text)}`)
+      fetch(`https://queryx1.onrender.com/api/search?q=${encodeURIComponent(text)}`)
         .then(res => res.json())
         .then(data => {
           const offline = JSON.parse(localStorage.getItem("offlineData")) || [];
@@ -166,7 +166,7 @@ export default function SearchBar({
         return;
       }
 
-      const res = await fetch("http://localhost:5000/api/search/history", {
+      const res = await fetch("https://queryx1.onrender.com/api/search/history", {
         headers: token
           ? { Authorization: `Bearer ${token}` }
           : {}
@@ -239,7 +239,7 @@ export default function SearchBar({
     // --- 1. SEARCH RESULTS LOGIC ---
     try {
       const searchPromise = fetch(
-        `http://localhost:5000/api/search?q=${encodeURIComponent(finalQuery)}&page=${page}`,
+        `https://queryx1.onrender.com/api/search?q=${encodeURIComponent(finalQuery)}&page=${page}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           signal: controllerRef.current.signal,
@@ -247,11 +247,11 @@ export default function SearchBar({
       );
 
       const imgPromise = fetch(
-        `http://localhost:5000/api/images?q=${encodeURIComponent(finalQuery)}`
+        `https://queryx1.onrender.com/api/images?q=${encodeURIComponent(finalQuery)}`
       );
 
       const vidPromise = fetch(
-        `http://localhost:5000/api/videos?q=${encodeURIComponent(finalQuery)}`
+        `https://queryx1.onrender.com/api/videos?q=${encodeURIComponent(finalQuery)}`
       );
 
       const [searchRes, imgRes, vidRes] = await Promise.all([
@@ -271,7 +271,7 @@ export default function SearchBar({
               ? "exam"
               : "normal";
 
-          const aiRes = await fetch("http://localhost:5000/api/ai", {
+          const aiRes = await fetch("https://queryx1.onrender.com/api/ai", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
