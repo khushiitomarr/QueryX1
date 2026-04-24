@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import App from "./App";
 import AIDetail from "./pages/AIDetail";
-import ChatMains from "./pages/ChatMain"
+import ChatMain from "./pages/ChatMain"
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
