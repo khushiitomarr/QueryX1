@@ -9,6 +9,7 @@ import ChatBot from "./components/ChatBot";
 import ImageResults from "./components/ImageResults";
 import VideoResults from "./components/VideoResults";
 import { useRef } from "react";
+import ChatMain from "./pages/ChatMain";
 
 export default function App() {
   const navigate = useNavigate();
@@ -307,7 +308,7 @@ const isModeChange = useRef(false);
       )}
       <div className="fixed bottom-6 right-6 z-50">
         <button
-          onClick={() => window.open("/chat.html", "_blank")}
+          onClick={() => window.open("/chat", "_blank")}
           className="p-4 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg text-xl transition-transform hover:scale-110"
         >
           💬
