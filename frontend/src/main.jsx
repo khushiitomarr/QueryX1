@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import App from "./App";
 import AIDetail from "./pages/AIDetail";
-import ChatMain from "./pages/ChatMain"
+import ChatMains from "./pages/ChatMains"
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -15,7 +15,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/" element={<App />} />
         <Route path="/ai" element={<AIDetail />} />
         <Route path="/search" element={<App />} />
-        <Route path="/chat" element={<ChatMain />} />
+        <Route path="/chats" element={<ChatMains/>}/>
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
