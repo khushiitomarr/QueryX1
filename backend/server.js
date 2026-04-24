@@ -23,7 +23,10 @@ const app = express();
 // CORS
 
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: [
+    "http://localhost:5173",
+    "https://query-x1.vercel.app"
+  ],
   methods: ["GET", "POST", "DELETE"], // ✅ ADD DELETE
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
