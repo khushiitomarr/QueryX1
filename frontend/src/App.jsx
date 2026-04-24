@@ -9,7 +9,6 @@ import ChatBot from "./components/ChatBot";
 import ImageResults from "./components/ImageResults";
 import VideoResults from "./components/VideoResults";
 import { useRef } from "react";
-import ChatMain from "./pages/ChatMain";
 
 export default function App() {
   const navigate = useNavigate();
