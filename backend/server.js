@@ -24,7 +24,6 @@ const app = express();
 
 app.use(cors({
   origin: [
-    "http://localhost:5173",
     "https://query-x1.vercel.app"
   ],
   methods: ["GET", "POST", "DELETE"],

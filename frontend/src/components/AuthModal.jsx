@@ -18,8 +18,8 @@ export default function AuthModal({ onClose, setUser }) {
 
     const url =
       mode === "login"
-        ? "http://localhost:5000/api/auth/login"
-        : "http://localhost:5000/api/auth/signup";
+        ? "https://queryx1.onrender.com/api/auth/login"
+        : "https://queryx1.onrender.com/api/auth/signup";
 
     const body =
       mode === "login"

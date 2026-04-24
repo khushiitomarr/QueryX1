@@ -414,7 +414,7 @@ export default function SearchBar({
     try {
       const token = localStorage.getItem("token"); // Get the token
 
-      const res = await fetch("http://localhost:5000/api/search/history", {
+      const res = await fetch("https://queryx1.onrender.com/api/search/history", {
         method: "DELETE",
         headers: token
           ? { Authorization: `Bearer ${token}` }
