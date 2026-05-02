@@ -31,7 +31,12 @@ export default function App() {
   const [examMode, setExamMode] = useState(false);
   const [searchFn, setSearchFn] = useState(null);
   const [quizMode, setQuizMode] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const isModeChange = useRef(false);
+
+  useEffect(() => {
+  setExpanded(false);
+}, [ai]);
 
   useEffect(() => {
     if (window.location.pathname !== "/") {
@@ -121,6 +126,12 @@ export default function App() {
 
   }, [examMode, quizMode]);
 
+  const previewLength = 500;
+  const isLong = ai.length > previewLength;
+  
+  const displayText = expanded
+  ? ai
+  : ai.slice(0, previewLength) + (isLong ? "..." : "");
   return (
 
     <div className="min-h-screen flex flex-col justify-between" style={{ background: "var(--bg)" }}>
@@ -197,7 +208,7 @@ export default function App() {
           <div className="w-full max-w-[1100px]">
             <div
               className={`grid gap-8 ${searchType === "all"
-                ? "md:grid-cols-[320px_1fr]"
+                ? "md:grid-cols-[400px_1fr]"
                 : "grid-cols-1"
                 }`}
             >
@@ -225,24 +236,31 @@ export default function App() {
                     ) : ai && ai !== "AI failed" ? (
 
                       <div className="prose prose-invert max-w-none 
-  prose-h3:text-green-400 
-  prose-h3:text-lg 
-  prose-h3:font-bold
-  prose-p:text-gray-300
-  prose-strong:text-green-300
-  prose-li:text-gray-300
-  space-y-4">
+                         prose-h3:text-green-400 
+                        prose-h3:text-lg 
+                        prose-h3:font-bold
+                        prose-p:text-gray-300
+                        prose-strong:text-green-300
+                        prose-li:text-gray-300
+                        space-y-4">
 
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {ai
-                            .replace(/^Overview$/gm, "## Overview")
-                            .replace(/^Key Points.*$/gm, "## Key Points 📌")
-                            .replace(/^Definition.*$/gm, "## Definition 🧠")
-                            .replace(/^Important Questions.*$/gm, "## Important Questions ❓")
-                            .replace(/^Quick Revision.*$/gm, "## Quick Revision 📝")
-                          }
+                          {displayText
+  .replace(/^Overview$/gm, "## Overview")
+  .replace(/^Key Points.*$/gm, "## Key Points 📌")
+  .replace(/^Definition.*$/gm, "## Definition 🧠")
+  .replace(/^Important Questions.*$/gm, "## Important Questions ❓")
+  .replace(/^Quick Revision.*$/gm, "## Quick Revision 📝")
+}
                         </ReactMarkdown>
-
+{isLong && (
+  <button
+    onClick={() => setExpanded(prev => !prev)}
+    className="mt-3 text-sm text-purple-400 hover:underline"
+  >
+    {expanded ? "Show Less ↑" : "Read More ↓"}
+  </button>
+)}
                       </div>
 
                     ) : (

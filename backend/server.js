@@ -23,13 +23,12 @@ const app = express();
 // CORS
 
 app.use(cors({
-  origin: [
-    "https://query-x1.vercel.app"
-  ],
-  methods: ["GET", "POST", "DELETE"],
+  origin: ["http://localhost:5173", "https://query-x1.vercel.app"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+app.options("*", cors());
 
 // Body parser
 app.use(express.json());
@@ -38,14 +37,14 @@ app.use(express.json());
 connectDB();
 
 // ROUTES MUST COME AFTER APP IS CREATED
-app.use(verifyUser);
-app.use("/api/search", searchRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/suggest", suggestRoutes);
+app.use("/api/search", verifyUser, searchRoutes);
+app.use("/api/ai", verifyUser, aiRoutes);
+app.use("/api/images", verifyUser, imageRoutes);
+app.use("/api/videos", verifyUser, videoRoutes);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
-app.use("/api/images", imageRoutes);
-app.use("/api/videos", videoRoutes);
+app.use("/api/suggest", suggestRoutes);
 
 // PORT
 const PORT = process.env.PORT || 5000;

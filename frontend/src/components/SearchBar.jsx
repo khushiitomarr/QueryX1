@@ -53,13 +53,10 @@ export default function SearchBar({
     };
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchHistory(); // logged in → fetch
-    } else {
-      setHistory([]); // 🔥 logout → clear instantly
-    }
-  }, [user]);
+ useEffect(() => {
+  fetchHistory(); // always try
+}, []);
+
   useEffect(() => {
     if (!query.trim()) {
       setSuggestions([]);
@@ -158,20 +155,22 @@ export default function SearchBar({
   };
 
   const fetchHistory = async () => {
+    console.log("Fetching history...");
     try {
       const token = localStorage.getItem("token");
-
+      
       if (!token) {
         setHistory([]); // 🔥 clear history for guest
         return;
       }
-
+      
       const res = await fetch("https://queryx1.onrender.com/api/search/history", {
         headers: token
-          ? { Authorization: `Bearer ${token}` }
-          : {}
+        ? { Authorization: `Bearer ${token}` }
+        : {}
       });
       const data = await res.json();
+      console.log("History response:", data);
       setHistory(data);
     } catch (err) {
       console.error(err);
