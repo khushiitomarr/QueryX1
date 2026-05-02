@@ -1,5 +1,5 @@
 import ChatBot from "../components/ChatBot";
-import "./index.css";
+import "../index.css";
 
 export default function ChatMain() {
   return (

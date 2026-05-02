@@ -31,7 +31,7 @@ export default function App() {
   const [examMode, setExamMode] = useState(false);
   const [searchFn, setSearchFn] = useState(null);
   const [quizMode, setQuizMode] = useState(false);
-const isModeChange = useRef(false);
+  const isModeChange = useRef(false);
 
   useEffect(() => {
     if (window.location.pathname !== "/") {
@@ -107,22 +107,22 @@ const isModeChange = useRef(false);
     localStorage.setItem("examMode", examMode);
   }, [examMode]);
 
- useEffect(() => {
-  if (!query || !searched || !searchFn) return;
-  if (typeof searchFn !== "function") return;
+  useEffect(() => {
+    if (!query || !searched || !searchFn) return;
+    if (typeof searchFn !== "function") return;
 
-  if (!isModeChange.current) return; 
+    if (!isModeChange.current) return;
 
-  console.log("🔁 Mode switched → refetching AI");
+    console.log("🔁 Mode switched → refetching AI");
 
-  setAi("");
-  setAiLoading(true);
-  searchFn(query, 1);
+    setAi("");
+    setAiLoading(true);
+    searchFn(query, 1);
 
-}, [examMode, quizMode]);
+  }, [examMode, quizMode]);
 
   return (
-    
+
     <div className="min-h-screen flex flex-col justify-between" style={{ background: "var(--bg)" }}>
 
       <Header
@@ -301,16 +301,18 @@ const isModeChange = useRef(false);
 
       <Footer />
       {showChat && (
-        <div className="fixed bottom-20 right-6 z-50">
-          <ChatBot />
+        <div className="fixed bottom-20 right-6 z-50 animate-fadeIn">
+          <ChatBot onClose={() => setShowChat(false)} />
         </div>
       )}
       <div className="fixed bottom-6 right-6 z-50">
         <button
-          onClick={() => window.open("/chat", "_blank")}
+          onClick={() => setShowChat(prev => !prev)}
           className="p-4 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg text-xl transition-transform hover:scale-110"
         >
-          💬
+
+          {showChat ? "✖" : "💬"}
+
         </button>
       </div>
       {selectedImage && (

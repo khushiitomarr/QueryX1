@@ -110,19 +110,19 @@ if (isOffline) {
   };
 
   return (
-    <div className="w-full max-w-md bg-gray-900 rounded-xl shadow-xl border border-white/10 flex flex-col">
+    <div className="w-[350px] h-[500px] bg-gray-900 rounded-xl shadow-xl border border-white/10 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
         <h2 className="font-semibold">💬 AI Chat</h2>
 
        <button
-  onClick={() => window.close()}
+  onClick={onClose}
   className="text-gray-400 hover:text-white"
 >
   ✖
 </button>
       </div>
       {/* CHAT BOX */}
-      <div className="h-150 overflow-y-auto rounded-xl p-4 border border-white/10 bg-black/40 space-y-3">
+      <div className="flex-1 overflow-y-auto rounded-xl p-4 border border-white/10 bg-black/40 space-y-3">
         {messages.slice(1).map((msg, i) => (
           <div
             key={i}
