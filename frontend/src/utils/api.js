@@ -14,3 +14,25 @@ export const getApiBaseUrl = () => {
 };
 
 export const getApiUrl = (path) => `${getApiBaseUrl()}${path}`;
+
+export const clearSavedAuth = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+};
+
+export const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+
+  if (!token || token === "null" || token === "undefined") {
+    clearSavedAuth();
+    return {};
+  }
+
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    clearSavedAuth();
+    return {};
+  }
+
+  return { Authorization: `Bearer ${token}` };
+};
