@@ -1,15 +1,20 @@
 export default function ImageResults({ images, setSelectedImage }) {
   return (
-    <div className="columns-2 sm:columns-3 md:columns-4 gap-4 space-y-4">
+    <div className="image-results-grid">
       {images.map((img, i) => (
-        <div key={i} className="break-inside-avoid">
+        <button
+          key={i}
+          type="button"
+          onClick={() => setSelectedImage(img)}
+          className="image-result-card"
+        >
           <img
-           loading="lazy" src={img.thumbnail}
-            alt=""
-            onClick={() => setSelectedImage(img)}
-            className="rounded-lg w-full cursor-pointer hover:scale-105 transition duration-300"
+            loading="lazy"
+            src={img.thumbnail}
+            alt={img.title || ""}
+            className="image-result-thumb"
           />
-        </div>
+        </button>
       ))}
     </div>
   );

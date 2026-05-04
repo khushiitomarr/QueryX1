@@ -11,7 +11,7 @@ import {
 export default function Footer() {
   return (
     <footer
-      className="mt-10 px-6 py-6 transition-colors"
+      className="app-footer mt-0 px-6 py-6 transition-colors"
       style={{ backgroundColor: "var(--card)" }}
     >
       {/* CENTER: QUICK LINKS + SOCIAL */}
@@ -85,7 +85,7 @@ export default function Footer() {
 
 
       {/* BOTTOM LINE */}
-      <div className="mt-6 pt-4 text-center text-xm opacity-50 ">
+      <div className="footer-copy mt-6 pt-4 text-center text-xm opacity-50 ">
         © {new Date().getFullYear()} QueryX. All rights reserved.
       </div>
     </footer>

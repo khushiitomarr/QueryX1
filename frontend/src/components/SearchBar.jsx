@@ -1,8 +1,171 @@
-import { Search, Mic } from "lucide-react";
+import { Mic, Search } from "lucide-react";
 import { useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEffect } from "react";
+
+const REMOTE_API_BASE_URL = "https://queryx1.onrender.com";
+const LOCAL_API_BASE_URL = "http://localhost:5000";
+
+const getAiApiUrl = () => {
+  const configuredBaseUrl =
+    import.meta.env.VITE_AI_API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
+
+  const baseUrl =
+    configuredBaseUrl ||
+    (window.location.hostname === "localhost"
+      ? LOCAL_API_BASE_URL
+      : REMOTE_API_BASE_URL);
+
+  return `${baseUrl.replace(/\/$/, "")}/api/ai`;
+};
+
+const getModeName = ({ examMode, quizMode }) => {
+  if (quizMode) return "quiz";
+  if (examMode) return "exam";
+  return "normal";
+};
+
+const getStudentAiQuery = (query, difficultyLevel, followUpInstruction) =>
+  [
+    query,
+    difficultyLevel ? `Explain for a ${difficultyLevel} student.` : "",
+    followUpInstruction,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+const getAiCacheMode = (mode, difficultyLevel, followUpInstruction) =>
+  [mode, difficultyLevel || "standard", followUpInstruction || "default"].join(":");
+
+const getCachedAiEntry = (cache, storageKey, mode) => {
+  const modes = Array.isArray(mode) ? mode.filter(Boolean) : [mode].filter(Boolean);
+  const matchesQuery = item => item.query?.toLowerCase() === storageKey;
+  const exactMatch = cache.find(
+    item => matchesQuery(item) && modes.includes(item.mode)
+  );
+
+  if (exactMatch) return exactMatch;
+
+  const baseModes = modes.map(item => String(item).split(":")[0]);
+  return cache.find(
+    item =>
+      matchesQuery(item) &&
+      baseModes.some(baseMode => item.mode === baseMode || item.mode?.startsWith(`${baseMode}:`))
+  );
+};
+
+const getCachedAi = (cache, storageKey, mode) =>
+  getCachedAiEntry(cache, storageKey, mode)?.ai || "";
+
+const getCachedSearch = (storageKey) => {
+  const offline = JSON.parse(localStorage.getItem("offlineData")) || [];
+
+  return offline.find(
+    item =>
+      item.query?.toLowerCase() === storageKey ||
+      item.query?.toLowerCase().includes(storageKey)
+  );
+};
+
+const getOfflineHistoryItems = () => {
+  const offline = JSON.parse(localStorage.getItem("offlineData")) || [];
+
+  return offline
+    .filter(item => item?.query)
+    .map(item => ({ query: item.query, results: item.results || [] }));
+};
+
+const getSourceSentences = (text, limit = 4) =>
+  String(text || "")
+    .replace(/[#*_`>-]/g, " ")
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map(sentence => sentence.trim())
+    .filter(sentence => sentence.length > 20)
+    .slice(0, limit);
+
+const buildOfflineExamAnswer = (query, storageKey, cachedAi) => {
+  const normalAi = getCachedAi(cachedAi, storageKey, "normal");
+  const cachedSearch = getCachedSearch(storageKey);
+  const resultText = (cachedSearch?.results || [])
+    .slice(0, 4)
+    .map(result => `${result.title}. ${result.description}`)
+    .join(" ");
+
+  const points = getSourceSentences(normalAi || resultText, 4);
+  const definition = points[0] || `${query} is the topic saved from your offline search results.`;
+
+  return `
+## Key Points
+${points.length
+      ? points.map(point => `- ${point}`).join("\n")
+      : `- ${query} is available from your saved offline search results.`
+    }
+
+## Definition
+- ${definition}
+
+## Important Questions
+- What is ${query}?
+- Why is ${query} important?
+- What are the main features or uses of ${query}?
+
+## Quick Revision
+- Read the key points once.
+- Remember the definition in your own words.
+- Revise the important questions before the exam.
+`.trim();
+};
+
+const buildOfflineNormalAnswer = (query, storageKey, cachedAi) => {
+  const normalAi = getCachedAi(cachedAi, storageKey, "normal");
+  if (normalAi) return normalAi;
+
+  const cachedSearch = getCachedSearch(storageKey);
+  const savedResults = (cachedSearch?.results || []).slice(0, 5);
+  const resultText = savedResults
+    .map(result => `${result.title}. ${result.description}`)
+    .join(" ");
+  const points = getSourceSentences(resultText, 5);
+
+  if (!savedResults.length && !points.length) return "";
+
+  return `
+## Overview
+
+${points[0] || `${query} is available from your saved offline search results.`}
+
+## Key Points
+${points.length
+      ? points.map(point => `- ${point}`).join("\n")
+      : savedResults.map(result => `- ${result.title}`).join("\n")
+    }
+
+## Saved Sources
+${savedResults
+      .slice(0, 3)
+      .map(result => `- ${result.title}`)
+      .join("\n")}
+`.trim();
+};
+
+const getOfflineAiAnswer = (query, storageKey, mode, cachedAi, baseMode = mode) => {
+  const cachedAnswer = getCachedAi(cachedAi, storageKey, [mode, baseMode]);
+  if (cachedAnswer) return cachedAnswer;
+
+  const offlineMode = String(baseMode || mode).split(":")[0];
+
+  if (offlineMode === "exam") {
+    return buildOfflineExamAnswer(query, storageKey, cachedAi);
+  }
+
+  if (offlineMode === "normal") {
+    return buildOfflineNormalAnswer(query, storageKey, cachedAi);
+  }
+
+  return "";
+};
 
 export default function SearchBar({
   user,
@@ -25,6 +188,9 @@ export default function SearchBar({
   quizMode,
   setQuizMode,
   isModeChange,
+  difficultyLevel = "Class 10",
+  followUpInstruction = "",
+  clearFollowUpInstruction,
   compact = false,
 }) {
   const [listening, setListening] = useState(false);
@@ -39,6 +205,7 @@ export default function SearchBar({
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const debounceRef = useRef(null);
   const aiMemoryCache = useRef({});
+  const aiRequestRef = useRef(0);
 
   useEffect(() => {
     const goOnline = () => setIsOffline(false);
@@ -53,9 +220,9 @@ export default function SearchBar({
     };
   }, []);
 
- useEffect(() => {
-  fetchHistory(); // always try
-}, []);
+  useEffect(() => {
+    fetchHistory(); // always try, but use saved searches while offline
+  }, [isOffline]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -68,9 +235,7 @@ export default function SearchBar({
 
   const fetchSuggestions = (text) => {
     if (isOffline) {
-      const offline = JSON.parse(localStorage.getItem("offlineData")) || [];
-
-      const filtered = offline
+      const filtered = getOfflineHistoryItems()
         .map(item => item.query)
         .filter(q => q.toLowerCase().includes(text.toLowerCase()));
 
@@ -158,24 +323,23 @@ export default function SearchBar({
     console.log("Fetching history...");
     try {
       const token = localStorage.getItem("token");
-      
-      if (!token) {
-        setHistory([]); // 🔥 clear history for guest
+
+      if (isOffline || !token) {
+        setHistory(getOfflineHistoryItems());
         return;
       }
-      
+
       const res = await fetch("https://queryx1.onrender.com/api/search/history", {
         headers: token
-        ? { Authorization: `Bearer ${token}` }
-        : {}
+          ? { Authorization: `Bearer ${token}` }
+          : {}
       });
       const data = await res.json();
       console.log("History response:", data);
       setHistory(data);
     } catch (err) {
       console.error(err);
-      setHistory([]);
-      setShowHistory(false);
+      setHistory(getOfflineHistoryItems());
     }
   };
 
@@ -197,25 +361,44 @@ export default function SearchBar({
     }
     const aiCache = JSON.parse(localStorage.getItem("aiData")) || [];
 
-    const currentMode = quizMode
+    const baseMode = quizMode
       ? "quiz"
       : examMode
         ? "exam"
         : "normal";
+    const currentMode = getAiCacheMode(baseMode, difficultyLevel, followUpInstruction);
     console.log("🔥 Sending mode:", currentMode);
 
-    const aiMatch = aiCache.find(
-      item =>
-        item.query.toLowerCase() === storageKey &&
-        item.mode === currentMode
-    );
+    const aiMatch = getCachedAiEntry(aiCache, storageKey, [currentMode, baseMode]);
 
     if (aiMatch && page === 1 && !isModeChange.current) {
-  setAi(aiMatch.ai);
-  setAiLoading(false);
-}
+      setAi(aiMatch.ai);
+      setAiLoading(false);
+    }
     if (!finalQuery || searchingRef.current) return;
     clearedRef.current = false;
+
+    if (isOffline) {
+      setSearched(true);
+      setShowHistory(false);
+      setLoading(false);
+      setAiLoading(false);
+
+      if (cached && page === 1) {
+        setResults(cached.results);
+      }
+
+      const offlineAi = getOfflineAiAnswer(
+        finalQuery,
+        storageKey,
+        currentMode,
+        aiCache,
+        baseMode
+      );
+
+      setAi(offlineAi || "⚡ No AI available offline");
+      return;
+    }
 
     const token = localStorage.getItem("token");
 
@@ -264,21 +447,23 @@ export default function SearchBar({
 
       if (!isOffline || examMode || quizMode) {
         try {
-          const currentMode = quizMode
+          const baseMode = quizMode
             ? "quiz"
             : examMode
               ? "exam"
               : "normal";
+          const currentMode = getAiCacheMode(baseMode, difficultyLevel, followUpInstruction);
+          const aiQuery = getStudentAiQuery(finalQuery, difficultyLevel, followUpInstruction);
 
-          const aiRes = await fetch("https://queryx1.onrender.com/api/ai", {
+          const aiRes = await fetch(getAiApiUrl(), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               ...(token && { Authorization: `Bearer ${token}` })
             },
             body: JSON.stringify({
-              query: finalQuery,
-              mode: currentMode
+              query: aiQuery,
+              mode: baseMode
             })
           });
 
@@ -376,7 +561,97 @@ export default function SearchBar({
     await fetchHistory();
     setSuggestions([]);
     setShowHistory(false);
+    clearFollowUpInstruction?.();
   };
+
+  const fetchAiForMode = async (searchText, mode) => {
+    const finalQuery = (searchText || "").trim();
+    if (!finalQuery) return;
+
+    const requestId = ++aiRequestRef.current;
+    const storageKey = finalQuery.toLowerCase();
+    const currentMode = getAiCacheMode(mode, difficultyLevel, followUpInstruction);
+    const cachedAi = JSON.parse(localStorage.getItem("aiData")) || [];
+    const cachedMatch = getCachedAiEntry(cachedAi, storageKey, [currentMode, mode]);
+
+    localStorage.setItem("lastQuery", finalQuery);
+    localStorage.setItem("searched", "true");
+    setSearched(true);
+    setAi("");
+    setAiLoading(true);
+    setShowHistory(false);
+
+    try {
+      if (isOffline) {
+        const offlineAi =
+          cachedMatch?.ai ||
+          getOfflineAiAnswer(finalQuery, storageKey, currentMode, cachedAi, mode);
+
+        setAi(offlineAi || "⚡ No AI available offline");
+        return;
+      }
+
+      const aiQuery = getStudentAiQuery(finalQuery, difficultyLevel, followUpInstruction);
+
+      const aiRes = await fetch(getAiApiUrl(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` })
+        },
+        body: JSON.stringify({
+          query: aiQuery,
+          mode
+        })
+      });
+
+      const aiData = await aiRes.json();
+      if (requestId !== aiRequestRef.current) return;
+
+      if (aiData?.answer) {
+        setAi(aiData.answer);
+
+        const nextCache = cachedAi.filter(
+          item => !(item.query.toLowerCase() === storageKey && item.mode === currentMode)
+        );
+
+        nextCache.unshift({
+          query: storageKey,
+          mode: currentMode,
+          ai: aiData.answer
+        });
+
+        localStorage.setItem("aiData", JSON.stringify(nextCache.slice(0, 50)));
+      } else {
+        setAi("AI failed");
+      }
+    } catch (err) {
+      console.log("AI mode fetch failed", err);
+      if (requestId === aiRequestRef.current) {
+        setAi(cachedMatch?.ai || "AI failed");
+      }
+    } finally {
+      if (requestId === aiRequestRef.current) {
+        setAiLoading(false);
+      }
+    }
+  };
+
+  const handleModeToggle = (mode) => {
+    const nextExamMode = mode === "exam" ? !examMode : false;
+    const nextQuizMode = mode === "quiz" ? !quizMode : false;
+    const nextMode = getModeName({
+      examMode: nextExamMode,
+      quizMode: nextQuizMode,
+    });
+
+    if (isModeChange) isModeChange.current = false;
+
+    setExamMode(nextExamMode);
+    setQuizMode(nextQuizMode);
+    fetchAiForMode(query, nextMode);
+  };
+
   const handleVoiceSearch = () => {
     if (!("webkitSpeechRecognition" in window)) {
       alert("Voice not supported");
@@ -412,6 +687,14 @@ export default function SearchBar({
   const clearHistory = async () => {
     try {
       const token = localStorage.getItem("token"); // Get the token
+
+      if (!token) {
+        localStorage.removeItem("offlineData");
+        clearedRef.current = true;
+        setHistory([]);
+        setShowHistory(false);
+        return;
+      }
 
       const res = await fetch("https://queryx1.onrender.com/api/search/history", {
         method: "DELETE",
@@ -454,19 +737,24 @@ export default function SearchBar({
   }, []);
 
   useEffect(() => {
+    if (!followUpInstruction || !query.trim()) return;
+    handleSearch(query);
+  }, [followUpInstruction]);
+
+  useEffect(() => {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      setHistory([]);
+      setHistory(getOfflineHistoryItems());
       setSuggestions([]);
       setShowHistory(false); // 🔥 VERY IMPORTANT
     }
-  }, []);
+  }, [isOffline]);
 
 
   return (
     <div className="relative w-full">
-      <div className={`${compact ? "w-full max-w-xl" : ""}`}>
+      <div className={`relative ${compact ? "mx-auto w-full max-w-xl" : ""}`}>
 
         {isOffline && (
           <div className="mb-3 px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500 text-yellow-300 text-sm text-center">
@@ -475,10 +763,9 @@ export default function SearchBar({
         )}
         {/* 🔍 SEARCH INPUT */}
         <div
-          className="relative rounded-full border border-white/10 shadow-xl 
+          className="queryx-search-shell relative rounded-full border border-white/10 shadow-xl 
        transition-all duration-300 
-       hover:shadow-purple-500/30 hover:scale-[1.01]
-       focus-within:ring-2 focus-within:ring-purple-500/40"
+       focus-within:ring-2 focus-within:ring-blue-500/30"
           style={{ backgroundColor: "var(--card)" }}
         >
           <Search
@@ -536,7 +823,7 @@ export default function SearchBar({
               setTimeout(() => setShowHistory(false), 300);
             }}
             placeholder="Search QueryX..."
-            className="w-full py-4 pl-16 pr-16 rounded-full bg-transparent outline-none"
+            className={`queryx-search-input w-full pl-16 pr-16 rounded-full bg-transparent outline-none ${compact ? "py-3" : "py-3"}`}
             style={{ color: "var(--text)" }}
           />
           <Mic
@@ -547,42 +834,32 @@ ${listening ? "animate-pulse scale-110 text-red-400" : "hover:scale-110"}`}
             style={{ color: "var(--accent)" }}
           />
         </div>
-        <div className="flex justify-center mt-3">
+        <div className={`queryx-mode-switch mx-auto flex items-center justify-center gap-1 ${compact ? "mt-2" : "mt-3"}`}>
           <button
-            onClick={() => {
-  const newMode = !examMode;
-
-  setExamMode(newMode);
-  if (newMode) setQuizMode(false);
-
-  isModeChange.current = true; // 🔥 ADD THIS
-}}
-            className={`px-4 py-1 text-xs rounded-full transition ${examMode
-                ? "bg-purple-600 text-white"
-                : "bg-gray-700 text-gray-300"
+            onClick={() => handleModeToggle("exam")}
+            aria-pressed={examMode}
+            className={`mode-button ${examMode
+              ? "mode-active exam-active"
+              : ""
               }`}
           >
             🎓 Exam Mode {examMode ? "ON" : "OFF"}
           </button>
           <button
-            onClick={() => {
-  const newMode = !quizMode;
-
-  setQuizMode(newMode);
-  if (newMode) setExamMode(false);
-
-  isModeChange.current = true; // 🔥 ADD THIS
-}}
-            className={`px-4 py-1 rounded-full text-xs ml-2 ${quizMode ? "bg-green-600" : "bg-gray-700"
+            onClick={() => handleModeToggle("quiz")}
+            aria-pressed={quizMode}
+            className={`mode-button ${quizMode
+              ? "mode-active quiz-active"
+              : ""
               }`}
           >
             🧠 Quiz Mode {quizMode ? "ON" : "OFF"}
           </button>
         </div>
-        {token && showHistory && (history.length > 0 || suggestions.length > 0) && (
-          <div className="absolute top-full left-0 mt-2 w-full bg-black/90 backdrop-blur-lg border border-white/10 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto">
+        {showHistory && (history.length > 0 || suggestions.length > 0) && (
+          <div className="search-history-dropdown absolute top-full left-0 right-0 mt-2 w-full backdrop-blur-lg border rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto">
 
-            <div className="flex justify-between px-4 py-2 text-sm text-gray-400 border-b border-white/10">
+            <div className="search-history-header flex justify-between px-4 py-2 text-sm border-b">
               {/* Dynamic Header */}
               <span>{suggestions.length > 0 ? "Suggestions" : "Recent Searches"}</span>
               {suggestions.length === 0 && (
@@ -591,7 +868,7 @@ ${listening ? "animate-pulse scale-110 text-red-400" : "hover:scale-110"}`}
                     e.preventDefault();
                     clearHistory();
                   }}
-                  className="hover:text-white"
+                  className="search-history-clear"
                 >
                   Clear
                 </button>
@@ -609,9 +886,9 @@ ${listening ? "animate-pulse scale-110 text-red-400" : "hover:scale-110"}`}
                     setShowHistory(false);
                     handleSearch(value);
                   }}
-                  className={`px-4 py-3 cursor-pointer transition text-white ${idx === activeIndex
-                      ? "bg-purple-600 text-white"
-                      : "hover:bg-white/10"
+                  className={`search-history-item px-4 py-3 cursor-pointer transition ${idx === activeIndex
+                    ? "search-history-item-active"
+                    : ""
                     }`}
                 >
                   🔍 {value}

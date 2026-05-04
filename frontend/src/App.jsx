@@ -9,34 +9,146 @@ import ChatBot from "./components/ChatBot";
 import ImageResults from "./components/ImageResults";
 import VideoResults from "./components/VideoResults";
 import { useRef } from "react";
+import QuizUI from "./components/QuizUI";
+import { BookOpen } from "lucide-react";
+
+const DIFFICULTY_OPTIONS = ["Beginner", "Class 10", "College", "Expert"];
+
+const FOLLOW_UP_ACTIONS = [
+  {
+    label: "Explain simpler",
+    instruction: "Rewrite the answer in simpler words with short examples.",
+  },
+  {
+    label: "Give example",
+    instruction: "Give practical examples and explain each one briefly.",
+  },
+  {
+    label: "Make short notes",
+    instruction: "Convert the answer into compact revision notes with headings and bullets.",
+  },
+];
+
+const getSavedSearchState = () => {
+  const savedQuery = localStorage.getItem("lastQuery") || "";
+  const searched = localStorage.getItem("searched") === "true" && Boolean(savedQuery);
+  const examMode = localStorage.getItem("examMode") === "true";
+  const quizMode = localStorage.getItem("quizMode") === "true";
+
+  return {
+    searched,
+    query: searched ? savedQuery : "",
+    examMode: quizMode ? false : examMode,
+    quizMode,
+  };
+};
+
+const getSavedResults = (query) => {
+  if (!query) return [];
+
+  const saved = JSON.parse(localStorage.getItem("offlineData")) || [];
+  const match = saved.find(
+    item => item.query?.toLowerCase() === query.toLowerCase()
+  );
+
+  return match?.results || [];
+};
+
+const getSavedAi = ({ query, examMode, quizMode }) => {
+  if (!query) return "";
+
+  const mode = quizMode ? "quiz" : examMode ? "exam" : "normal";
+  const saved = JSON.parse(localStorage.getItem("aiData")) || [];
+  const match = saved.find(
+    item =>
+      item.query?.toLowerCase() === query.toLowerCase() &&
+      (item.mode === mode || item.mode?.startsWith(`${mode}:`))
+  );
+
+  return match?.ai || "";
+};
+
+const safeParseArray = (value) => {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const getCurrentUser = () => {
+  const savedUser = localStorage.getItem("user");
+  if (!savedUser) return null;
+
+  try {
+    return JSON.parse(savedUser);
+  } catch {
+    return null;
+  }
+};
+
+const getNotebookStorageKey = (user) => {
+  const userKey = user?._id || user?.id || user?.email;
+  return userKey ? `queryxNotebook:${userKey}` : "queryxNotebook:guest";
+};
+
+const getSavedNotebookEntries = (user) =>
+  safeParseArray(localStorage.getItem(getNotebookStorageKey(user)));
 
 export default function App() {
   const navigate = useNavigate();
+  const savedSearch = getSavedSearchState();
+  const savedUser = getCurrentUser();
 
   const [theme, setTheme] = useState("dark");
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(savedSearch.searched);
   const [showChat, setShowChat] = useState(false);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [ai, setAi] = useState("");
+  const [query, setQuery] = useState(savedSearch.query);
+  const [results, setResults] = useState(() => getSavedResults(savedSearch.query));
+  const [ai, setAi] = useState(() => getSavedAi(savedSearch));
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(savedUser);
   const [searchType, setSearchType] = useState("all");
   const [images, setImages] = useState([]);
   const [videos, setVideos] = useState([]);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [page, setPage] = useState(1);
-  const [examMode, setExamMode] = useState(false);
+  const [examMode, setExamMode] = useState(savedSearch.examMode);
   const [searchFn, setSearchFn] = useState(null);
-  const [quizMode, setQuizMode] = useState(false);
+  const [quizMode, setQuizMode] = useState(savedSearch.quizMode);
   const [expanded, setExpanded] = useState(false);
+  const [difficultyLevel, setDifficultyLevel] = useState(
+    () => localStorage.getItem("difficultyLevel") || "Class 10"
+  );
+  const [followUpInstruction, setFollowUpInstruction] = useState("");
+  const [showNotebook, setShowNotebook] = useState(false);
+  const [notebookEntries, setNotebookEntries] = useState(
+    () => getSavedNotebookEntries(savedUser)
+  );
+  const [selectedNotebookEntry, setSelectedNotebookEntry] = useState(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const isModeChange = useRef(false);
+  const restoredSearchRef = useRef(false);
 
   useEffect(() => {
-  setExpanded(false);
-}, [ai]);
+    setExpanded(false);
+  }, [ai]);
+
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (window.location.pathname !== "/") {
@@ -54,12 +166,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
   }, []);
+
+  useEffect(() => {
+    const entries = getSavedNotebookEntries(user);
+    setNotebookEntries(entries);
+    setSelectedNotebookEntry(entries[0] || null);
+    if (!entries.length) setShowNotebook(false);
+  }, [user]);
   useEffect(() => {
     const handleScroll = () => {
       if (!searchFn) return; // 🔥 IMPORTANT
@@ -83,34 +199,31 @@ export default function App() {
   }, [page, searchFn]);
 
   useEffect(() => {
+    if (restoredSearchRef.current) return;
+    if (!searched || !query || typeof searchFn !== "function") return;
+    if (results.length > 0 && ai) return;
+
+    restoredSearchRef.current = true;
+    searchFn(query, 1);
+  }, [searched, query, searchFn, results.length, ai]);
+
+  useEffect(() => {
     setPage(1);
   }, [query]);
 
 
 
   useEffect(() => {
-    const savedQuery = localStorage.getItem("lastQuery");
-    const wasSearched = localStorage.getItem("searched");
-
-    if (savedQuery && wasSearched === "true") {
-      setQuery(savedQuery);
-
-      setSearched(true);
-    }
-  }, []);
-
-
-
-  useEffect(() => {
-    const savedMode = localStorage.getItem("examMode");
-    if (savedMode !== null) {
-      setExamMode(savedMode === "true");
-    }
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem("examMode", examMode);
   }, [examMode]);
+
+  useEffect(() => {
+    localStorage.setItem("quizMode", quizMode);
+  }, [quizMode]);
+
+  useEffect(() => {
+    localStorage.setItem("difficultyLevel", difficultyLevel);
+  }, [difficultyLevel]);
 
   useEffect(() => {
     if (!query || !searched || !searchFn) return;
@@ -128,19 +241,116 @@ export default function App() {
 
   const previewLength = 500;
   const isLong = ai.length > previewLength;
-  
+
   const displayText = expanded
-  ? ai
-  : ai.slice(0, previewLength) + (isLong ? "..." : "");
+    ? ai
+    : ai.slice(0, previewLength) + (isLong ? "..." : "");
+
+  const handleHomeClick = () => {
+    localStorage.removeItem("lastQuery");
+    localStorage.removeItem("searched");
+    localStorage.setItem("examMode", "false");
+    localStorage.setItem("quizMode", "false");
+
+    setSearched(false);
+    setQuery("");
+    setResults([]);
+    setImages([]);
+    setVideos([]);
+    setAi("");
+    setAiLoading(false);
+    setLoading(false);
+    setExamMode(false);
+    setQuizMode(false);
+    setSearchType("all");
+    setPage(1);
+    setExpanded(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    navigate("/");
+  };
+
+  const requestAiRefresh = (instruction) => {
+    if (!query.trim()) return;
+
+    setAi("");
+    setAiLoading(true);
+    setFollowUpInstruction(instruction);
+  };
+
+  const handleDifficultyChange = (level) => {
+    setDifficultyLevel(level);
+    if (searched && query.trim()) {
+      requestAiRefresh(`Rewrite this for a ${level} student. Keep it useful for studying.`);
+    }
+  };
+
+  const handleSaveToNotebook = () => {
+    if (!query.trim() || !ai || ai === "AI failed") return;
+
+    const notebookStorageKey = getNotebookStorageKey(user);
+    const saved = getSavedNotebookEntries(user);
+    const entry = {
+      id: `${Date.now()}-${query.toLowerCase()}`,
+      query,
+      ai,
+      difficultyLevel,
+      mode: quizMode ? "quiz" : examMode ? "exam" : "normal",
+      savedAt: new Date().toISOString(),
+    };
+
+    const next = [
+      entry,
+      ...saved.filter(
+        item =>
+          !(
+            item.query?.toLowerCase() === query.toLowerCase() &&
+            item.mode === entry.mode &&
+            item.difficultyLevel === difficultyLevel
+          )
+      ),
+    ].slice(0, 60);
+
+    localStorage.setItem(notebookStorageKey, JSON.stringify(next));
+    setNotebookEntries(next);
+    setSelectedNotebookEntry(entry);
+    setShowNotebook(true);
+  };
+
+  const handleDeleteNotebookEntry = (entryId) => {
+    const next = notebookEntries.filter(entry => entry.id !== entryId);
+
+    localStorage.setItem(getNotebookStorageKey(user), JSON.stringify(next));
+    setNotebookEntries(next);
+
+    if (selectedNotebookEntry?.id === entryId) {
+      setSelectedNotebookEntry(next[0] || null);
+      if (!next.length) setShowNotebook(false);
+    }
+  };
+
+  const handlePracticeQuiz = () => {
+    if (!query.trim()) return;
+
+    setExamMode(false);
+    setQuizMode(true);
+    requestAiRefresh(
+      "Create 5 multiple-choice practice questions with 4 options, the correct answer, and a short explanation for each."
+    );
+  };
+
   return (
 
-    <div className="min-h-screen flex flex-col justify-between" style={{ background: "var(--bg)" }}>
+    <div
+      className={`${searched ? "min-h-screen" : "h-screen overflow-hidden"} flex flex-col justify-between`}
+      style={{ background: "var(--bg)" }}
+    >
 
       <Header
         theme={theme}
         setTheme={setTheme}
         searchType={searchType}
         setSearchType={setSearchType}
+        onHomeClick={handleHomeClick}
         searched={searched}   // ✅ ADD THIS
       >
         {searched && (
@@ -160,6 +370,9 @@ export default function App() {
             quizMode={quizMode}
             setQuizMode={setQuizMode}
             isModeChange={isModeChange}
+            difficultyLevel={difficultyLevel}
+            followUpInstruction={followUpInstruction}
+            clearFollowUpInstruction={() => setFollowUpInstruction("")}
             handleSearchExternal={setSearchFn}
             compact
           />
@@ -167,56 +380,127 @@ export default function App() {
       </Header>
 
 
-      <main className="flex-grow flex flex-col items-center pt-42">
+      <main className={`${searched ? "flex-grow pt-48" : "home-main flex-none"} flex flex-col items-center`}>
 
         {!searched && (
-          <div className="flex flex-col items-center justify-center h-full w-full">
+          <div className="home-hero flex flex-1 min-h-0 flex-col items-center justify-center w-full">
 
-            <h1 className="text-5xl font-bold mb-10 text-center">
+            <h1 className="home-title text-5xl font-bold mb-10 text-center">
               Search smarter with{" "}
-              <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-pink-400 
+              <span className="hero-brand bg-gradient-to-r from-purple-400 via-blue-400 to-pink-400 
       bg-clip-text text-transparent animate-pulse">
                 QueryX
               </span>
             </h1>
 
-            <div className="w-full max-w-2xl">
-              <SearchBar
-                user={user}
-                query={query}
-                setQuery={setQuery}
-                setSearched={setSearched}
-                setResults={setResults}
-                setAi={setAi}
-                setLoading={setLoading}
-                setAiLoading={setAiLoading}
-                setImages={setImages}
-                setVideos={setVideos}
-                examMode={examMode}
-                setExamMode={setExamMode}
-                quizMode={quizMode}
-                setQuizMode={setQuizMode}
-                isModeChange={isModeChange}
-                handleSearchExternal={setSearchFn}
-              />
-            </div>
+            <SearchBar
+              user={user}
+              query={query}
+              setQuery={setQuery}
+              setSearched={setSearched}
+              setResults={setResults}
+              setAi={setAi}
+              setLoading={setLoading}
+              setAiLoading={setAiLoading}
+              setImages={setImages}
+              setVideos={setVideos}
+              examMode={examMode}
+              setExamMode={setExamMode}
+              quizMode={quizMode}
+              setQuizMode={setQuizMode}
+              isModeChange={isModeChange}
+              difficultyLevel={difficultyLevel}
+              followUpInstruction={followUpInstruction}
+              clearFollowUpInstruction={() => setFollowUpInstruction("")}
+              handleSearchExternal={setSearchFn}
+              compact
+            />
+
+            {isOffline && (
+              <button
+                onClick={() => {
+                  setSelectedNotebookEntry(notebookEntries[0] || null);
+                  setShowNotebook(true);
+                }}
+                className="home-notebook-button mt-5"
+              >
+                <BookOpen size={18} />
+                Offline Notebook
+                <span>{notebookEntries.length}</span>
+              </button>
+            )}
 
           </div>
         )}
 
         {searched && (
-          <div className="w-full max-w-[1100px]">
+          <div className="w-full px-4">
             <div
-              className={`grid gap-8 ${searchType === "all"
-                ? "md:grid-cols-[400px_1fr]"
+              className={`search-results-layout grid gap-6 ${searchType === "all"
+                ? "xl:grid-cols-[240px_minmax(16px,1fr)_minmax(0,1080px)_minmax(16px,1fr)_240px] lg:grid-cols-[240px_minmax(0,1fr)]"
                 : "grid-cols-1"
                 }`}
             >
+              {searchType === "all" && (
+                <aside className="notebook-sidebar rounded-2xl border p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h2 className="text-sm font-semibold text-purple-400">
+                      Offline Notebook
+                    </h2>
+                    <span className="text-xs opacity-60">
+                      {notebookEntries.length}
+                    </span>
+                  </div>
 
+                  {notebookEntries.length === 0 ? (
+                    <p className="text-sm opacity-70">
+                      Saved notes appear here offline.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {notebookEntries.map(entry => (
+                        <div
+                          key={entry.id}
+                          className="notebook-title-row rounded-xl border p-2"
+                        >
+                        <button
+                          onClick={() => {
+                            setSelectedNotebookEntry(entry);
+                            setShowNotebook(true);
+                          }}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className="block text-sm font-medium truncate">
+                            {entry.query}
+                          </span>
+                          <span className="mt-1 block text-xs opacity-60">
+                            {entry.difficultyLevel} · {entry.mode}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNotebookEntry(entry.id)}
+                          className="notebook-delete-button"
+                          title="Delete note"
+                        >
+                          Delete
+                        </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </aside>
+              )}
+
+              <section
+                className={`grid gap-6 ${searchType === "all"
+                  ? "study-content-block xl:grid-cols-[470px_minmax(0,1fr)]"
+                  : "media-content-block grid-cols-1"
+                  }`}
+              >
               {/* LEFT */}
               {searchType === "all" && (
                 <div className="space-y-6">
-                  <div className="p-6 rounded-2xl bg-gradient-to-br from-[#0f172a] to-[#020617] border border-white/10 shadow-xl">
+                  <div className="ai-panel search-ai-panel p-6 rounded-2xl bg-gradient-to-br from-[#0f172a] to-[#020617] border border-white/10 shadow-xl">
 
                     {/* HEADER */}
                     {/* Inside the AI Overview div */}
@@ -227,6 +511,52 @@ export default function App() {
                       </h2>
                     </div>
 
+                    <div className="student-tools mb-5 space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {DIFFICULTY_OPTIONS.map(level => (
+                          <button
+                            key={level}
+                            onClick={() => handleDifficultyChange(level)}
+                            className={`student-tool-button ${
+                              difficultyLevel === level ? "student-tool-active" : ""
+                            }`}
+                          >
+                            {level}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={handleSaveToNotebook}
+                          disabled={!ai || ai === "AI failed" || aiLoading}
+                          className="student-tool-button disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Save to Notebook
+                        </button>
+                        <button
+                          onClick={handlePracticeQuiz}
+                          disabled={!query.trim() || aiLoading}
+                          className="student-tool-button disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Practice Quiz
+                        </button>
+                        {FOLLOW_UP_ACTIONS.map(action => (
+                          <button
+                            key={action.label}
+                            onClick={() => {
+                              setQuizMode(false);
+                              requestAiRefresh(action.instruction);
+                            }}
+                            disabled={!query.trim() || aiLoading}
+                            className="student-tool-button disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {aiLoading ? (
                       <div className="space-y-3 animate-pulse">
                         <div className="h-3 bg-gray-700 rounded w-3/4"></div>
@@ -235,33 +565,37 @@ export default function App() {
                       </div>
                     ) : ai && ai !== "AI failed" ? (
 
-                      <div className="prose prose-invert max-w-none 
-                         prose-h3:text-green-400 
-                        prose-h3:text-lg 
-                        prose-h3:font-bold
-                        prose-p:text-gray-300
-                        prose-strong:text-green-300
-                        prose-li:text-gray-300
-                        space-y-4">
+                      quizMode ? (
+                        <div className="ai-answer-scroll">
+                          <QuizUI ai={ai} />
+                        </div>
+                      ) : (
+                        <div className="ai-answer-scroll prose prose-invert max-w-none 
+      prose-h3:text-green-400 
+      prose-p:text-gray-300
+      prose-li:text-gray-300
+      space-y-4">
 
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {displayText
-  .replace(/^Overview$/gm, "## Overview")
-  .replace(/^Key Points.*$/gm, "## Key Points 📌")
-  .replace(/^Definition.*$/gm, "## Definition 🧠")
-  .replace(/^Important Questions.*$/gm, "## Important Questions ❓")
-  .replace(/^Quick Revision.*$/gm, "## Quick Revision 📝")
-}
-                        </ReactMarkdown>
-{isLong && (
-  <button
-    onClick={() => setExpanded(prev => !prev)}
-    className="mt-3 text-sm text-purple-400 hover:underline"
-  >
-    {expanded ? "Show Less ↑" : "Read More ↓"}
-  </button>
-)}
-                      </div>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {displayText
+                              .replace(/^Overview$/gm, "## Overview")
+                              .replace(/^Key Points.*$/gm, "## Key Points 📌")
+                              .replace(/^Definition.*$/gm, "## Definition 🧠")
+                              .replace(/^Important Questions.*$/gm, "## Important Questions ❓")
+                              .replace(/^Quick Revision.*$/gm, "## Quick Revision 📝")
+                            }
+                          </ReactMarkdown>
+
+                          {isLong && (
+                            <button
+                              onClick={() => setExpanded(prev => !prev)}
+                              className="mt-3 text-sm text-purple-400 hover:underline"
+                            >
+                              {expanded ? "Show Less ↑" : "Read More ↓"}
+                            </button>
+                          )}
+                        </div>
+                      )
 
                     ) : (
                       <div className="text-sm text-gray-400 italic">
@@ -274,7 +608,7 @@ export default function App() {
               )}
 
               {/* RIGHT */}
-              <div className="space-y-4">
+              <div className="results-column space-y-4">
 
                 {searchType === "all" && (
                   <>
@@ -287,7 +621,7 @@ export default function App() {
                     )}
                     {results.map((r, i) => (
                       <a key={i} href={r.url} target="_blank" className="block">
-                        <div className="p-6 bg-gray-800 rounded-xl hover:bg-gray-700 transition space-y-2">
+                        <div className="result-card p-6 bg-gray-800 rounded-xl hover:bg-gray-700 transition space-y-2">
 
                           <h3 className="text-lg font-semibold">
                             {r.title}
@@ -312,12 +646,83 @@ export default function App() {
                 )}
 
               </div>
+              </section>
             </div>
           </div>
         )}
       </main>
 
       <Footer />
+      {showNotebook && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4"
+          onClick={() => setShowNotebook(false)}
+        >
+          <div
+            className="notebook-panel w-full max-w-3xl max-h-[80vh] overflow-y-auto rounded-2xl border p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <h2 className="text-xl font-bold">
+                {selectedNotebookEntry ? selectedNotebookEntry.query : "Saved Notebook"}
+              </h2>
+              <button
+                onClick={() => setShowNotebook(false)}
+                className="student-tool-button"
+              >
+                Close
+              </button>
+            </div>
+
+            {notebookEntries.length === 0 ? (
+              <p className="text-sm opacity-70">
+                No notes saved yet. Search a topic, then click Save to Notebook.
+              </p>
+            ) : selectedNotebookEntry ? (
+              <article className="notebook-entry rounded-xl border p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs opacity-60">
+                    {selectedNotebookEntry.difficultyLevel} · {selectedNotebookEntry.mode}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteNotebookEntry(selectedNotebookEntry.id)}
+                    className="notebook-delete-button"
+                  >
+                    Delete note
+                  </button>
+                </div>
+                <div className="prose prose-invert max-w-none text-sm">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {selectedNotebookEntry.ai}
+                  </ReactMarkdown>
+                </div>
+              </article>
+            ) : (
+              <div className="space-y-4">
+                {notebookEntries.map(entry => (
+                  <div key={entry.id} className="notebook-title-row rounded-xl border p-4">
+                    <button
+                      onClick={() => setSelectedNotebookEntry(entry)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <span className="font-semibold">{entry.query}</span>
+                      <span className="ml-2 text-xs opacity-60">
+                        {entry.difficultyLevel} · {entry.mode}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteNotebookEntry(entry.id)}
+                      className="notebook-delete-button"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {showChat && (
         <div className="fixed bottom-20 right-6 z-50 animate-fadeIn">
           <ChatBot onClose={() => setShowChat(false)} />
