@@ -179,6 +179,7 @@ export default function App() {
   useEffect(() => {
     const handleScroll = () => {
       if (!searchFn) return; // 🔥 IMPORTANT
+      if (searchType !== "all") return;
 
       if (
         window.innerHeight + window.scrollY >=
@@ -190,13 +191,25 @@ export default function App() {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [searchFn]);
+  }, [searchFn, searchType]);
 
   useEffect(() => {
-    if (page > 1 && typeof searchFn === "function" && navigator.onLine) {
+    if (searchType === "all" && page > 1 && typeof searchFn === "function" && navigator.onLine) {
       searchFn(query, page);
     }
-  }, [page, searchFn]);
+  }, [page, searchFn, searchType]);
+
+  useEffect(() => {
+    if (!searched || !query || typeof searchFn !== "function" || !navigator.onLine) return;
+
+    if (searchType === "images" && images.length === 0) {
+      searchFn(query, 1);
+    }
+
+    if (searchType === "videos" && videos.length === 0) {
+      searchFn(query, 1);
+    }
+  }, [searchType, searched, query, searchFn, images.length, videos.length]);
 
   useEffect(() => {
     if (restoredSearchRef.current) return;
@@ -365,6 +378,7 @@ export default function App() {
             setAiLoading={setAiLoading}
             setImages={setImages}
             setVideos={setVideos}
+            searchType={searchType}
             examMode={examMode}
             setExamMode={setExamMode}
             quizMode={quizMode}
@@ -404,6 +418,7 @@ export default function App() {
               setAiLoading={setAiLoading}
               setImages={setImages}
               setVideos={setVideos}
+              searchType={searchType}
               examMode={examMode}
               setExamMode={setExamMode}
               quizMode={quizMode}

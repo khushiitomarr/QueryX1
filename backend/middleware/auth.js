@@ -19,7 +19,9 @@ export default function (req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
   } catch (err) {
-    console.log("JWT ERROR:", err.message);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("JWT ERROR:", err.message);
+    }
     return next(); // don't crash backend
   }
 

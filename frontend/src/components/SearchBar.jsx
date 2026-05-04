@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEffect } from "react";
-import { getApiUrl } from "../utils/api";
+import { getApiUrl, getAuthHeaders } from "../utils/api";
 
 const getModeName = ({ examMode, quizMode }) => {
   if (quizMode) return "quiz";
@@ -176,6 +176,7 @@ export default function SearchBar({
   difficultyLevel = "Class 10",
   followUpInstruction = "",
   clearFollowUpInstruction,
+  searchType = "all",
   compact = false,
 }) {
   const [listening, setListening] = useState(false);
@@ -186,7 +187,6 @@ export default function SearchBar({
   const [showHistory, setShowHistory] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const token = localStorage.getItem("token");
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const debounceRef = useRef(null);
   const aiMemoryCache = useRef({});
@@ -279,27 +279,6 @@ export default function SearchBar({
       }
     }, 300);
 
-
-    if (text.length > 2 && navigator.onLine) {
-      fetch(getApiUrl(`/api/search?q=${encodeURIComponent(text)}`))
-        .then(res => res.json())
-        .then(data => {
-          const offline = JSON.parse(localStorage.getItem("offlineData")) || [];
-          const exists = offline.find(
-            item => item.query.toLowerCase() === text.toLowerCase()
-          );
-
-          if (!exists && data.results) {
-            offline.unshift({
-              query: text,
-              results: data.results
-            });
-
-            localStorage.setItem("offlineData", JSON.stringify(offline.slice(0, 50)));
-          }
-        })
-        .catch(() => { });
-    }
   };
 
   const fetchHistory = async () => {
@@ -313,9 +292,7 @@ export default function SearchBar({
       }
 
       const res = await fetch(getApiUrl("/api/search/history"), {
-        headers: token
-          ? { Authorization: `Bearer ${token}` }
-          : {}
+        headers: getAuthHeaders()
       });
       const data = await res.json();
       console.log("History response:", data);
@@ -383,9 +360,6 @@ export default function SearchBar({
       return;
     }
 
-    const token = localStorage.getItem("token");
-
-
     controllerRef.current?.abort();
     controllerRef.current = new AbortController();
     searchingRef.current = true;
@@ -403,23 +377,31 @@ export default function SearchBar({
     window.scrollTo({ top: 0, behavior: "smooth" });
     // --- 1. SEARCH RESULTS LOGIC ---
     try {
+      if (searchType === "images") {
+        const imgRes = await fetch(getApiUrl(`/api/images?q=${encodeURIComponent(finalQuery)}`));
+        const imgData = await imgRes.json();
+        setImages(imgData.images || []);
+        setAiLoading(false);
+        return;
+      }
+
+      if (searchType === "videos") {
+        const vidRes = await fetch(getApiUrl(`/api/videos?q=${encodeURIComponent(finalQuery)}`));
+        const vidData = await vidRes.json();
+        setVideos(vidData.videos || []);
+        setAiLoading(false);
+        return;
+      }
+
       const searchPromise = fetch(
         getApiUrl(`/api/search?q=${encodeURIComponent(finalQuery)}&page=${page}`),
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: getAuthHeaders(),
           signal: controllerRef.current.signal,
         }
       );
 
-      const imgPromise = fetch(getApiUrl(`/api/images?q=${encodeURIComponent(finalQuery)}`));
-
-      const vidPromise = fetch(getApiUrl(`/api/videos?q=${encodeURIComponent(finalQuery)}`));
-
-      const [searchRes, imgRes, vidRes] = await Promise.all([
-        searchPromise,
-        imgPromise,
-        vidPromise
-      ]);
+      const searchRes = await searchPromise;
 
       // 🔥 AI separate
       let aiData = null;
@@ -438,7 +420,7 @@ export default function SearchBar({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` })
+              ...getAuthHeaders()
             },
             body: JSON.stringify({
               query: aiQuery,
@@ -482,11 +464,6 @@ export default function SearchBar({
       }
 
       const searchData = await searchRes.json();
-      const imgData = await imgRes.json();
-      const vidData = await vidRes.json();
-
-      setImages(imgData.images || []);
-      setVideos(vidData.videos || []);
       const resultsFromServer = searchData.results || [];
 
       // ❗ DO NOT overwrite if offline or empty
@@ -576,7 +553,7 @@ export default function SearchBar({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` })
+          ...getAuthHeaders()
         },
         body: JSON.stringify({
           query: aiQuery,
@@ -677,9 +654,7 @@ export default function SearchBar({
 
       const res = await fetch(getApiUrl("/api/search/history"), {
         method: "DELETE",
-        headers: token
-          ? { Authorization: `Bearer ${token}` }
-          : {}
+        headers: getAuthHeaders()
       });
 
       if (res.ok) {
@@ -711,9 +686,9 @@ export default function SearchBar({
 
   useEffect(() => {
     if (handleSearchExternal) {
-      handleSearchExternal(handleSearch);
+      handleSearchExternal(() => handleSearch);
     }
-  }, []);
+  }, [searchType, examMode, quizMode, difficultyLevel, followUpInstruction, isOffline]);
 
   useEffect(() => {
     if (!followUpInstruction || !query.trim()) return;
