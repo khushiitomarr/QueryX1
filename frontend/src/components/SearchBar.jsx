@@ -308,8 +308,8 @@ export default function SearchBar({
     const finalQuery = typeof customQuery === "string"
       ? customQuery.trim()
       : (query || "").trim();
-    localStorage.setItem("lastQuery", finalQuery);
-    localStorage.setItem("searched", "true");
+    sessionStorage.setItem("lastQuery", finalQuery);
+    sessionStorage.setItem("searched", "true");
     const storageKey = finalQuery.toLowerCase();
 
     const cache = JSON.parse(localStorage.getItem("offlineData")) || [];
@@ -530,8 +530,8 @@ export default function SearchBar({
     const cachedAi = JSON.parse(localStorage.getItem("aiData")) || [];
     const cachedMatch = getCachedAiEntry(cachedAi, storageKey, [currentMode, mode]);
 
-    localStorage.setItem("lastQuery", finalQuery);
-    localStorage.setItem("searched", "true");
+    sessionStorage.setItem("lastQuery", finalQuery);
+    sessionStorage.setItem("searched", "true");
     setSearched(true);
     setAi("");
     setAiLoading(true);

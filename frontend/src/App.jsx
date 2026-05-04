@@ -30,16 +30,11 @@ const FOLLOW_UP_ACTIONS = [
 ];
 
 const getSavedSearchState = () => {
-  const savedQuery = localStorage.getItem("lastQuery") || "";
-  const searched = localStorage.getItem("searched") === "true" && Boolean(savedQuery);
-  const examMode = localStorage.getItem("examMode") === "true";
-  const quizMode = localStorage.getItem("quizMode") === "true";
-
   return {
-    searched,
-    query: searched ? savedQuery : "",
-    examMode: quizMode ? false : examMode,
-    quizMode,
+    searched: false,
+    query: "",
+    examMode: false,
+    quizMode: false,
   };
 };
 
@@ -154,6 +149,11 @@ export default function App() {
     if (window.location.pathname !== "/") {
       window.history.replaceState(null, "", "/");
     }
+
+    sessionStorage.removeItem("lastQuery");
+    sessionStorage.removeItem("searched");
+    localStorage.removeItem("lastQuery");
+    localStorage.removeItem("searched");
   }, []);
 
   useEffect(() => {
@@ -260,6 +260,8 @@ export default function App() {
     : ai.slice(0, previewLength) + (isLong ? "..." : "");
 
   const handleHomeClick = () => {
+    sessionStorage.removeItem("lastQuery");
+    sessionStorage.removeItem("searched");
     localStorage.removeItem("lastQuery");
     localStorage.removeItem("searched");
     localStorage.setItem("examMode", "false");
