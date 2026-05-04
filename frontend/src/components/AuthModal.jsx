@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X, Eye, EyeOff, Loader2 } from "lucide-react";
+import { getApiUrl } from "../utils/api";
 
 export default function AuthModal({ onClose, setUser }) {
   const [mode, setMode] = useState("login");
@@ -18,8 +19,8 @@ export default function AuthModal({ onClose, setUser }) {
 
     const url =
       mode === "login"
-        ? "https://queryx1.onrender.com/api/auth/login"
-        : "https://queryx1.onrender.com/api/auth/signup";
+        ? getApiUrl("/api/auth/login")
+        : getApiUrl("/api/auth/signup");
 
     const body =
       mode === "login"

@@ -21,14 +21,40 @@ console.log("ENV LOADED?", process.env.MONGO_URI);
 const app = express();
 
 // CORS
+const configuredOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
+  process.env.CORS_ORIGIN,
+]
+  .filter(Boolean)
+  .flatMap(origin => origin.split(","))
+  .map(origin => origin.trim().replace(/\/$/, ""));
 
-app.use(cors({
-  origin: ["http://localhost:5173", "https://query-x1.vercel.app"],
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://query-x1.vercel.app",
+  ...configuredOrigins,
+];
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    const hostname = new URL(normalizedOrigin).hostname;
+    const isAllowed =
+      allowedOrigins.includes(normalizedOrigin) ||
+      /\.vercel\.app$/.test(hostname);
+
+    return callback(isAllowed ? null : new Error("Not allowed by CORS"), isAllowed);
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
-}));
-app.options("*", cors());
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 // Body parser
 app.use(express.json());

@@ -1,4 +1,5 @@
 import { useState, useEffect} from "react";
+import { getApiUrl } from "../utils/api";
 
 export default function ChatBot({ onClose }) {
   const [messages, setMessages] = useState([
@@ -81,7 +82,7 @@ if (isOffline) {
     setLoading(true);
 
     try {
-      const res = await fetch("https://queryx1.onrender.com/api/chat", {
+      const res = await fetch(getApiUrl("/api/chat"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

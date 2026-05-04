@@ -3,22 +3,7 @@ import { useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useEffect } from "react";
-
-const REMOTE_API_BASE_URL = "https://queryx1.onrender.com";
-const LOCAL_API_BASE_URL = "http://localhost:5000";
-
-const getAiApiUrl = () => {
-  const configuredBaseUrl =
-    import.meta.env.VITE_AI_API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
-
-  const baseUrl =
-    configuredBaseUrl ||
-    (window.location.hostname === "localhost"
-      ? LOCAL_API_BASE_URL
-      : REMOTE_API_BASE_URL);
-
-  return `${baseUrl.replace(/\/$/, "")}/api/ai`;
-};
+import { getApiUrl } from "../utils/api";
 
 const getModeName = ({ examMode, quizMode }) => {
   if (quizMode) return "quiz";
@@ -252,9 +237,7 @@ export default function SearchBar({
       }
 
       try {
-        const res = await fetch(
-          `https://queryx1.onrender.com/api/suggest/suggestions?q=${text}`
-        );
+        const res = await fetch(getApiUrl(`/api/suggest/suggestions?q=${encodeURIComponent(text)}`));
 
         const data = await res.json();
         const sugg = data || [];
@@ -298,7 +281,7 @@ export default function SearchBar({
 
 
     if (text.length > 2 && navigator.onLine) {
-      fetch(`https://queryx1.onrender.com/api/search?q=${encodeURIComponent(text)}`)
+      fetch(getApiUrl(`/api/search?q=${encodeURIComponent(text)}`))
         .then(res => res.json())
         .then(data => {
           const offline = JSON.parse(localStorage.getItem("offlineData")) || [];
@@ -329,7 +312,7 @@ export default function SearchBar({
         return;
       }
 
-      const res = await fetch("https://queryx1.onrender.com/api/search/history", {
+      const res = await fetch(getApiUrl("/api/search/history"), {
         headers: token
           ? { Authorization: `Bearer ${token}` }
           : {}
@@ -421,20 +404,16 @@ export default function SearchBar({
     // --- 1. SEARCH RESULTS LOGIC ---
     try {
       const searchPromise = fetch(
-        `https://queryx1.onrender.com/api/search?q=${encodeURIComponent(finalQuery)}&page=${page}`,
+        getApiUrl(`/api/search?q=${encodeURIComponent(finalQuery)}&page=${page}`),
         {
           headers: { Authorization: `Bearer ${token}` },
           signal: controllerRef.current.signal,
         }
       );
 
-      const imgPromise = fetch(
-        `https://queryx1.onrender.com/api/images?q=${encodeURIComponent(finalQuery)}`
-      );
+      const imgPromise = fetch(getApiUrl(`/api/images?q=${encodeURIComponent(finalQuery)}`));
 
-      const vidPromise = fetch(
-        `https://queryx1.onrender.com/api/videos?q=${encodeURIComponent(finalQuery)}`
-      );
+      const vidPromise = fetch(getApiUrl(`/api/videos?q=${encodeURIComponent(finalQuery)}`));
 
       const [searchRes, imgRes, vidRes] = await Promise.all([
         searchPromise,
@@ -455,7 +434,7 @@ export default function SearchBar({
           const currentMode = getAiCacheMode(baseMode, difficultyLevel, followUpInstruction);
           const aiQuery = getStudentAiQuery(finalQuery, difficultyLevel, followUpInstruction);
 
-          const aiRes = await fetch(getAiApiUrl(), {
+          const aiRes = await fetch(getApiUrl("/api/ai"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -593,7 +572,7 @@ export default function SearchBar({
 
       const aiQuery = getStudentAiQuery(finalQuery, difficultyLevel, followUpInstruction);
 
-      const aiRes = await fetch(getAiApiUrl(), {
+      const aiRes = await fetch(getApiUrl("/api/ai"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -696,7 +675,7 @@ export default function SearchBar({
         return;
       }
 
-      const res = await fetch("https://queryx1.onrender.com/api/search/history", {
+      const res = await fetch(getApiUrl("/api/search/history"), {
         method: "DELETE",
         headers: token
           ? { Authorization: `Bearer ${token}` }
